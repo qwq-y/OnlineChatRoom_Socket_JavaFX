@@ -21,3 +21,9 @@ public class Main extends Application {
         stage.show();
     }
 }
+
+
+// --module-path "C:\javafx\javafx-sdk-20\lib" --add-modules javafx.controls,javafx.base,javafx.fxml,javafx.graphics,javafx.media,javafx.web  --add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED --add-exports javafx.base/com.sun.javafx.event=ALL-UNNAMED
+
+
+

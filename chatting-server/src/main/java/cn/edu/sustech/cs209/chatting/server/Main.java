@@ -1,8 +1,145 @@
 package cn.edu.sustech.cs209.chatting.server;
 
+import cn.edu.sustech.cs209.chatting.common.Message;
+import cn.edu.sustech.cs209.chatting.common.MessageType;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+
 public class Main {
 
-    public static void main(String[] args) {
-        System.out.println("Starting server");
+  private static final String NAME = "server";
+  private static final int PORT = 8080;
+  private static HashMap<String, ObjectOutputStream> users = new HashMap<>();
+
+  public static void main(String[] args) {
+    System.out.println("Starting server");
+
+    try (ServerSocket serversocket = new ServerSocket(PORT)) {
+      while (true) {
+        try {
+          UserThread userThread = new UserThread(serversocket.accept());
+          userThread.start();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
+      }
+    } catch (IOException e) {
+      e.printStackTrace();
     }
+  }
+
+  static class UserThread extends Thread {
+
+    private String username;
+    private Socket socket;
+    private ObjectInputStream in;
+    private ObjectOutputStream out;
+
+    public UserThread(Socket socket) {
+      try {
+        this.socket = socket;
+        in = new ObjectInputStream(socket.getInputStream());
+        out = new ObjectOutputStream(socket.getOutputStream());
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    public void run() {
+      try {
+        Message rsvmsg = (Message) in.readObject();
+        if (rsvmsg != null) {
+          switch (rsvmsg.getType()) {
+            case LOGIN:
+              login(rsvmsg);
+              break;
+            case REQUEST:
+              if (rsvmsg.getData().equals("userList")) {
+                getUserList();
+              }
+              break;
+            case EXIT:
+              socket.close();
+              break;
+            case CHAT:
+              chat(rsvmsg);
+              break;
+            default:
+              Message sndmsg = new Message(System.currentTimeMillis(), NAME,
+                  new String[]{"default"}, "illegal request", MessageType.WARNING);
+              out.writeObject(sndmsg);
+              out.flush();
+          }
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    private void login(Message rsvmsg) throws Exception {
+      String tempname = rsvmsg.getData();
+      if (isDuplicateName(tempname)) {
+        Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
+            "duplicate name",
+            MessageType.WARNING);
+        out.writeObject(sndmsg);
+        out.flush();
+      } else {
+        username = tempname;
+        users.put(username, out);
+        Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
+            "username ok",
+            MessageType.SUCCESS);
+        out.writeObject(sndmsg);
+        out.flush();
+      }
+    }
+
+    private boolean isDuplicateName(String name) {
+      Iterator<String> itr = users.keySet().iterator();
+      while (itr.hasNext()) {
+        String user = itr.next();
+        if (user.equals(name)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    private void getUserList() throws Exception{
+      String[] userList = users.keySet().toArray(new String[users.size()]);
+      String userListStr = String.join(",", userList);
+      Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
+          userListStr,
+          MessageType.RESPOND);
+      out.writeObject(sndmsg);
+      out.flush();
+    }
+
+    private void chat(Message msg) {
+      HashSet<ObjectOutputStream> receiverStreams = new HashSet<>();
+      for (String name : msg.getSendTo()) {
+        ObjectOutputStream stream = users.get(name);
+        receiverStreams.add(stream);
+      }
+      try {
+        Iterator<ObjectOutputStream> itr = receiverStreams.iterator();
+        while (itr.hasNext()) {
+          ObjectOutputStream stream = itr.next();
+          stream.writeObject(msg);
+          stream.reset();
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+  }
 }
+
+

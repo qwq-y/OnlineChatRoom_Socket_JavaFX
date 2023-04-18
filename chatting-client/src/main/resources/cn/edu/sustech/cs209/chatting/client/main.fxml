@@ -26,8 +26,8 @@
     <SplitPane dividerPositions="0.25" focusTraversable="true" VBox.vgrow="ALWAYS">
         <ListView fx:id="chatList" prefHeight="200.0" prefWidth="200.0"/>
         <SplitPane dividerPositions="0.85" orientation="VERTICAL" prefHeight="200.0" prefWidth="160.0">
-            <ListView fx:id="chatContentList" prefHeight="200.0" prefWidth="200.0"/>
-            <HBox prefHeight="100.0" prefWidth="200.0">
+            <>
+            <HBox prefHeight="100.0" prefWidth="200.0">ListView fx:id="chatContentList" prefHeight="200.0" prefWidth="200.0"/
                 <TextArea fx:id="inputArea" prefHeight="138.0" prefWidth="624.0" HBox.hgrow="ALWAYS"/>
                 <Button maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#doSendMessage"
                         text="Send" HBox.hgrow="ALWAYS"/>
