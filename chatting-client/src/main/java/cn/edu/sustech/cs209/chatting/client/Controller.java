@@ -2,14 +2,16 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,29 +56,41 @@ public class Controller implements Initializable {
     Optional<String> input = dialog.showAndWait();
 
     if (input.isPresent() && !input.get().isEmpty()) {
-      try (Socket socket = new Socket(HOST, PORT);
-          ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
-          ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());) {
+      try (Socket socket = new Socket()) {
+
+        InetAddress addre=InetAddress.getByName(HOST);
+
+        InetSocketAddress socketAddress=new InetSocketAddress(addre,PORT);
+        socket.connect(socketAddress);
+
+
+        ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+        ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+//        BufferedReader bin = new BufferedReader(in);
+        System.out.println("streams created");
 
         boolean isNameDup = true;
         do {
           username = input.get();
+          System.out.println("input username: " + username);
           Message sndmsg = new Message(System.currentTimeMillis(), username,
               new String[]{"default"},
               username, MessageType.LOGIN);
           out.writeObject(sndmsg);
           out.flush();
+          System.out.println("client sndmsg: " + sndmsg.getData());
 
           Message rsvmsg = (Message) in.readObject();
+          System.out.println("client rsvmsg: " + rsvmsg.getData());
           if (rsvmsg.getType() == MessageType.SUCCESS) {
             isNameDup = false;
           }
-          System.out.println(rsvmsg.getData());
         } while (isNameDup);
 
       } catch (Exception e) {
         e.printStackTrace();
       }
+
     } else {
       System.out.println("Invalid username " + input + ", exiting");
       Platform.exit();

@@ -2,9 +2,11 @@ package cn.edu.sustech.cs209.chatting.server;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -44,8 +46,8 @@ public class Main {
     public UserThread(Socket socket) {
       try {
         this.socket = socket;
-        in = new ObjectInputStream(socket.getInputStream());
         out = new ObjectOutputStream(socket.getOutputStream());
+        in = new ObjectInputStream(socket.getInputStream());
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -54,6 +56,7 @@ public class Main {
     public void run() {
       try {
         Message rsvmsg = (Message) in.readObject();
+        System.out.println("server rsvmsg: " + rsvmsg.getData());
         if (rsvmsg != null) {
           switch (rsvmsg.getType()) {
             case LOGIN:
@@ -77,6 +80,8 @@ public class Main {
               out.flush();
           }
         }
+      } catch (EOFException e) {
+        System.out.println("EOF");
       } catch (Exception e) {
         e.printStackTrace();
       }
@@ -84,8 +89,9 @@ public class Main {
 
     private void login(Message rsvmsg) throws Exception {
       String tempname = rsvmsg.getData();
+      Message sndmsg;
       if (isDuplicateName(tempname)) {
-        Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
+        sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
             "duplicate name",
             MessageType.WARNING);
         out.writeObject(sndmsg);
@@ -93,12 +99,13 @@ public class Main {
       } else {
         username = tempname;
         users.put(username, out);
-        Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
+        sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
             "username ok",
             MessageType.SUCCESS);
         out.writeObject(sndmsg);
         out.flush();
       }
+      System.out.println("server sndmsg: " + sndmsg.getData());
     }
 
     private boolean isDuplicateName(String name) {
