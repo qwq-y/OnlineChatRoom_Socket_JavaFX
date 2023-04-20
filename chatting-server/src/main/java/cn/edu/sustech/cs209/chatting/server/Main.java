@@ -6,7 +6,6 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
@@ -55,29 +54,31 @@ public class Main {
 
     public void run() {
       try {
-        Message rsvmsg = (Message) in.readObject();
-        System.out.println("server rsvmsg: " + rsvmsg.getData());
-        if (rsvmsg != null) {
-          switch (rsvmsg.getType()) {
-            case LOGIN:
-              login(rsvmsg);
-              break;
-            case REQUEST:
-              if (rsvmsg.getData().equals("userList")) {
-                getUserList();
-              }
-              break;
-            case EXIT:
-              socket.close();
-              break;
-            case CHAT:
-              chat(rsvmsg);
-              break;
-            default:
-              Message sndmsg = new Message(System.currentTimeMillis(), NAME,
-                  new String[]{"default"}, "illegal request", MessageType.WARNING);
-              out.writeObject(sndmsg);
-              out.flush();
+        while (true) {
+          Message rsvmsg = (Message) in.readObject();
+          System.out.println("server rsvmsg: " + rsvmsg.getData());
+          if (rsvmsg != null) {
+            switch (rsvmsg.getType()) {
+              case LOGIN:
+                login(rsvmsg);
+                break;
+              case REQUEST:
+                if (rsvmsg.getData().equals("userList")) {
+                  getUserList();
+                }
+                break;
+              case EXIT:
+                socket.close();
+                break;
+              case CHAT:
+                chat(rsvmsg);
+                break;
+              default:
+                Message sndmsg = new Message(System.currentTimeMillis(), NAME,
+                    new String[]{"default"}, "illegal request", MessageType.WARNING);
+                out.writeObject(sndmsg);
+                out.flush();
+            }
           }
         }
       } catch (EOFException e) {

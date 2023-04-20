@@ -2,7 +2,6 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -18,6 +17,8 @@ import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
@@ -39,6 +40,7 @@ public class Controller implements Initializable {
 
   @FXML
   ListView<Message> chatContentList;
+  ObservableList<Message> messageList = FXCollections.observableArrayList();
   private final String HOST = "localhost";
   private final int PORT = 8080;
   String username;
@@ -56,16 +58,15 @@ public class Controller implements Initializable {
     Optional<String> input = dialog.showAndWait();
 
     if (input.isPresent() && !input.get().isEmpty()) {
-      try (Socket socket = new Socket()) {
-
+      socket = new Socket();
+      try {
         InetAddress addre=InetAddress.getByName(HOST);
 
         InetSocketAddress socketAddress=new InetSocketAddress(addre,PORT);
         socket.connect(socketAddress);
 
-
-        ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-        ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+        out = new ObjectOutputStream(socket.getOutputStream());
+        in = new ObjectInputStream(socket.getInputStream());
 //        BufferedReader bin = new BufferedReader(in);
         System.out.println("streams created");
 
@@ -84,6 +85,7 @@ public class Controller implements Initializable {
           System.out.println("client rsvmsg: " + rsvmsg.getData());
           if (rsvmsg.getType() == MessageType.SUCCESS) {
             isNameDup = false;
+            messageList.add(rsvmsg);
           }
         } while (isNameDup);
 
@@ -96,6 +98,7 @@ public class Controller implements Initializable {
       Platform.exit();
     }
 
+    chatContentList.setItems(messageList);
     chatContentList.setCellFactory(new MessageCellFactory());
   }
 
@@ -112,11 +115,13 @@ public class Controller implements Initializable {
           "userList", MessageType.REQUEST);
       out.writeObject(sndmsg);
       out.flush();
+      System.out.println("client sndmsg: " + sndmsg.getData());
 
       Message rsvmsg = (Message)in.readObject();
+      System.out.println("client rsvmsg: " + rsvmsg.getData());
       String userListStr = rsvmsg.getData();
       List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-      userList.remove(username);
+//      userList.remove(username);
 
       userSel.getItems().addAll(userList);
 
@@ -164,13 +169,21 @@ public class Controller implements Initializable {
    */
   @FXML
   public void doSendMessage() {
-    // TODO
+    try {
+//      Message sndmsg = new Message(System.currentTimeMillis(), username,
+//          new String[]{"default"},
+//          "userList", MessageType.CHAT);
+//      out.writeObject(sndmsg);
+//      out.flush();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
   /**
-   * You may change the cell factory if you changed the design of {@code Message} model. Hint: you
-   * may also define a cell factory for the chats displayed in the left panel, or simply override
-   * the toString method.
+   * You may change the cell factory if you changed the design of {@code Message} model.
+   * Hint: you may also define a cell factory for the chats displayed in the left panel,
+   * or simply override the toString method.
    */
   private class MessageCellFactory implements Callback<ListView<Message>, ListCell<Message>> {
 

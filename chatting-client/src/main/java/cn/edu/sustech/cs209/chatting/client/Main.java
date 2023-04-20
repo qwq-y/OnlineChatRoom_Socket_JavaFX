@@ -1,6 +1,5 @@
 package cn.edu.sustech.cs209.chatting.client;
 
-import java.io.Serializable;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
