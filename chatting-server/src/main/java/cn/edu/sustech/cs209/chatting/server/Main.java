@@ -128,6 +128,7 @@ public class Main {
           MessageType.RESPOND);
       out.writeObject(sndmsg);
       out.flush();
+      System.out.println("server sndmsg: " + sndmsg.getData());
     }
 
     private void chat(Message msg) {

@@ -23,6 +23,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -31,7 +32,11 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
+import javafx.scene.control.Tab;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.cell.CheckBoxListCell;
+import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.util.Callback;
@@ -47,6 +52,7 @@ public class Controller implements Initializable {
   private Socket socket;
   private ObjectInputStream in;
   private ObjectOutputStream out;
+  List<ChatRecord> chatRecords = new ArrayList<>();
 
   @Override
   public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -104,11 +110,48 @@ public class Controller implements Initializable {
 
   @FXML
   public void createPrivateChat() {
-    AtomicReference<String> user = new AtomicReference<>();
+    AtomicReference<List<String>> selectedUsers = new AtomicReference<>(new ArrayList<>());
 
     Stage stage = new Stage();
-    ComboBox<String> userSel = new ComboBox<>();
+    ListView<String> userSel = new ListView<>();
+//    ComboBox<String> userSel = new ComboBox<>();
 
+    List<String> userList = getUserList();
+    userSel.getItems().addAll(userList);
+
+    Button okBtn = new Button("OK");
+    okBtn.setOnAction(e -> {
+      selectedUsers.set(new ArrayList<>(userSel.getSelectionModel().getSelectedItems()));
+      stage.close();
+    });
+
+    HBox box = new HBox(10);
+    box.setAlignment(Pos.CENTER);
+    box.setPadding(new Insets(20, 20, 20, 20));
+    box.getChildren().addAll(userSel, okBtn);
+
+    // Set up the ListView with multiple selection enabled
+    userSel.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+    userSel.setPrefHeight(100);
+
+    stage.setScene(new Scene(box));
+    stage.showAndWait();
+
+    List<String> users = selectedUsers.get();
+    if (!users.isEmpty()) {
+      String chatName = String.join(", ", users);
+      ChatRecord record = getRecordByName(chatName);
+      if (record == null) {
+        ChatRecord newRecord = new ChatRecord(chatName);
+        openChat(newRecord, stage);
+      } else {
+        openChat(record, stage);
+      }
+    }
+  }
+
+  private List<String> getUserList() {
+    List<String> userList = null;
     try {
       Message sndmsg = new Message(System.currentTimeMillis(), username,
           new String[]{"default"},
@@ -120,31 +163,27 @@ public class Controller implements Initializable {
       Message rsvmsg = (Message)in.readObject();
       System.out.println("client rsvmsg: " + rsvmsg.getData());
       String userListStr = rsvmsg.getData();
-      List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-//      userList.remove(username);
-
-      userSel.getItems().addAll(userList);
+      userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
+      userList.remove(username);
 
     } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();
     }
+    return userList;
+  }
 
-    Button okBtn = new Button("OK");
-    okBtn.setOnAction(e -> {
-      user.set(userSel.getSelectionModel().getSelectedItem());
-      stage.close();
-    });
+  private ChatRecord getRecordByName(String name) {
+    for (ChatRecord record : chatRecords) {
+      if (record.getUser().equals((name))) {
+        return record;
+      }
+    }
+    return null;
+  }
 
-    HBox box = new HBox(10);
-    box.setAlignment(Pos.CENTER);
-    box.setPadding(new Insets(20, 20, 20, 20));
-    box.getChildren().addAll(userSel, okBtn);
-    stage.setScene(new Scene(box));
-    stage.showAndWait();
-
-    // TODO: if the current user already chatted with the selected user, just open the chat with that user
-    // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-
+  private void openChat(ChatRecord record, Stage stage) {
+//    Stage stage = new Stage();
+    ChatPanel panel = new ChatPanel(record);
 
   }
 
@@ -159,6 +198,7 @@ public class Controller implements Initializable {
    */
   @FXML
   public void createGroupChat() {
+
   }
 
   /**
@@ -177,6 +217,51 @@ public class Controller implements Initializable {
 //      out.flush();
     } catch (Exception e) {
       e.printStackTrace();
+    }
+  }
+
+  class ChatRecord {
+    private String user;    // the opposite user
+    private List<String> messages = new ArrayList<>();
+
+    public ChatRecord(String user) {
+      this.user = user;
+    }
+
+    public String getUser() {
+      return user;
+    }
+
+    public List<String> getMessages() {
+      return messages;
+    }
+
+    public boolean deletePieceOfMessage(String m) {
+      return messages.remove(m);
+    }
+  }
+
+  class ChatPanel extends BorderPane {
+    private Label titleLabel = new Label();
+    private ListView<String> messageListView = new ListView<>();
+
+    public ChatPanel(ChatRecord record) {
+      setTitle(record.getUser());
+      setMessages(record.getMessages());
+      this.setTop(titleLabel);
+      this.setCenter(messageListView);
+    }
+
+    public void setTitle(String title) {
+      titleLabel.setText(title);
+    }
+
+    public void setMessages(List<String> messages) {
+      messageListView.getItems().addAll(messages);
+    }
+
+    public void addMessage(String message) {
+      messageListView.getItems().add(message);
     }
   }
 
