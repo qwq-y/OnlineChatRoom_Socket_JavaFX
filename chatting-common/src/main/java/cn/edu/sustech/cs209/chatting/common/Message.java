@@ -4,11 +4,15 @@ import java.io.Serializable;
 
 public class Message implements Serializable {
 
-    private Long timestamp;   // System.currentTimeMillis()
+    private Long timestamp;
+    // System.currentTimeMillis()
 
-    private String sentBy;   // "server" or username
+    private String sentBy;
+    // "server" or username
 
-    private String[] sendTo;   // "default" in server-client, username in client-server-client
+    private String sendTo;
+    // str.split(","); String.join(",", record.getNames());
+    // "default" in server-client, usernames in client-server-client
 
     private String data;
     /**
@@ -20,9 +24,10 @@ public class Message implements Serializable {
      *     EXIT: data = "exit"
      */
 
-    private MessageType type;   //  LOGIN, REQUIRE, EXIT, CHAT, WARNING, SUCCESS
+    private MessageType type;
+    //  LOGIN, REQUIRE, EXIT, CHAT, WARNING, SUCCESS
 
-    public Message(Long timestamp, String sentBy, String[] sendTo, String data, MessageType type) {
+    public Message(Long timestamp, String sentBy, String sendTo, String data, MessageType type) {
         this.timestamp = timestamp;
         this.sentBy = sentBy;
         this.sendTo = sendTo;
@@ -38,7 +43,7 @@ public class Message implements Serializable {
         return sentBy;
     }
 
-    public String[] getSendTo() {
+    public String getSendTo() {
         return sendTo;
     }
 

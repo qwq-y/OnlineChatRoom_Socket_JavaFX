@@ -17,8 +17,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
@@ -27,13 +25,11 @@ import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
-import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -44,10 +40,6 @@ import javafx.stage.Stage;
 import javafx.util.Callback;
 
 public class Controller implements Initializable {
-
-  @FXML
-  ListView<Message> chatContentList;
-  ObservableList<Message> messageList = FXCollections.observableArrayList();
 
   private final String HOST = "localhost";
   private final int PORT = 8080;
@@ -84,8 +76,7 @@ public class Controller implements Initializable {
         do {
           username = input.get();
           System.out.println("input username: " + username);
-          Message sndmsg = new Message(System.currentTimeMillis(), username,
-              new String[]{"default"},
+          Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
               username, MessageType.LOGIN);
           out.writeObject(sndmsg);
           out.flush();
@@ -107,9 +98,6 @@ public class Controller implements Initializable {
       System.out.println("Invalid username " + input + ", exiting");
       Platform.exit();
     }
-
-    chatContentList.setItems(messageList);
-    chatContentList.setCellFactory(new MessageCellFactory());
   }
 
   @FXML
@@ -118,7 +106,8 @@ public class Controller implements Initializable {
     // get user list
     List<String> userList = new ArrayList<>();
     try {
-      Message sndmsg = new Message(System.currentTimeMillis(), username, new String[]{"default"}, "userList", MessageType.REQUEST);
+      Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
+          "userList", MessageType.REQUEST);
       out.writeObject(sndmsg);
       out.flush();
       System.out.println("client sndmsg: " + sndmsg.getData());
@@ -133,7 +122,7 @@ public class Controller implements Initializable {
       e.printStackTrace();
     }
 
-    // show users
+    // create user checkboxes, and listen on selection
     CheckBox[] userCheckboxes = new CheckBox[userList.size()];
     for (int i = 0; i < userList.size(); i++) {
       userCheckboxes[i] = new CheckBox(userList.get(i));
@@ -156,7 +145,6 @@ public class Controller implements Initializable {
           break;
         }
       }
-
       if (existingRecord != null) {
         openChat(existingRecord);
       } else {
@@ -218,7 +206,8 @@ public class Controller implements Initializable {
     // 创建一个 Scene 并设置到 Stage 中
     Scene scene = new Scene(root, 400, 400);
     Stage stage = new Stage();
-    stage.setTitle(record.getNames().toString());
+    String names = String.join(",", record.getNames());
+    stage.setTitle(names);
     stage.setScene(scene);
 
     // 在 sendButton 被点击时发送消息
@@ -228,6 +217,16 @@ public class Controller implements Initializable {
         String formattedMessage = String.format("[%s] %s\n", LocalDateTime.now(), message);
         chatArea.appendText(formattedMessage);
         inputField.clear();
+
+        try {
+          Message sndmsg = new Message(System.currentTimeMillis(), username, names, message, MessageType.CHAT);
+          out.writeObject(sndmsg);
+          out.flush();
+          System.out.println("client choose user to chat with: " + names);
+          System.out.println("client sndmsg: " + sndmsg.getData());
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
       }
     });
 

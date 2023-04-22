@@ -74,8 +74,8 @@ public class Main {
                 chat(rsvmsg);
                 break;
               default:
-                Message sndmsg = new Message(System.currentTimeMillis(), NAME,
-                    new String[]{"default"}, "illegal request", MessageType.WARNING);
+                Message sndmsg = new Message(System.currentTimeMillis(), NAME, "default",
+                    "illegal request", MessageType.WARNING);
                 out.writeObject(sndmsg);
                 out.flush();
             }
@@ -92,16 +92,14 @@ public class Main {
       String tempname = rsvmsg.getData();
       Message sndmsg;
       if (isDuplicateName(tempname)) {
-        sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
-            "duplicate name",
+        sndmsg = new Message(System.currentTimeMillis(), NAME, "default", "duplicate name",
             MessageType.WARNING);
         out.writeObject(sndmsg);
         out.flush();
       } else {
         username = tempname;
         users.put(username, out);
-        sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
-            "username ok",
+        sndmsg = new Message(System.currentTimeMillis(), NAME, "default", "username ok",
             MessageType.SUCCESS);
         out.writeObject(sndmsg);
         out.flush();
@@ -120,11 +118,10 @@ public class Main {
       return false;
     }
 
-    private void getUserList() throws Exception{
+    private void getUserList() throws Exception {
       String[] userList = users.keySet().toArray(new String[users.size()]);
       String userListStr = String.join(",", userList);
-      Message sndmsg = new Message(System.currentTimeMillis(), NAME, new String[]{"default"},
-          userListStr,
+      Message sndmsg = new Message(System.currentTimeMillis(), NAME, "default", userListStr,
           MessageType.RESPOND);
       out.writeObject(sndmsg);
       out.flush();
@@ -132,8 +129,10 @@ public class Main {
     }
 
     private void chat(Message msg) {
+      System.out.println("server will relay message to: " + msg.getSendTo());
       HashSet<ObjectOutputStream> receiverStreams = new HashSet<>();
-      for (String name : msg.getSendTo()) {
+      String[] sendToArr = msg.getSendTo().split(",");
+      for (String name : sendToArr) {
         ObjectOutputStream stream = users.get(name);
         receiverStreams.add(stream);
       }
@@ -142,7 +141,8 @@ public class Main {
         while (itr.hasNext()) {
           ObjectOutputStream stream = itr.next();
           stream.writeObject(msg);
-          stream.reset();
+          stream.flush();
+          System.out.println("server sndmsg: " + msg);
         }
       } catch (Exception e) {
         e.printStackTrace();
