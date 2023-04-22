@@ -8,27 +8,23 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.ResourceBundle;
+import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.fxml.FXML;
-import javafx.fxml.Initializable;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
-import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -37,9 +33,8 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import javafx.util.Callback;
 
-public class Controller implements Initializable {
+public class Controller extends Application {
 
   private final String HOST = "localhost";
   private final int PORT = 8080;
@@ -51,8 +46,28 @@ public class Controller implements Initializable {
   List<ChatRecord> records = new ArrayList<>();
 
   @Override
-  public void initialize(URL url, ResourceBundle resourceBundle) {
+  public void start (Stage primaryStage) {
 
+    try {
+      socket = new Socket();
+      InetAddress addre = InetAddress.getByName(HOST);
+      InetSocketAddress socketAddress = new InetSocketAddress(addre, PORT);
+      socket.connect(socketAddress);
+
+      out = new ObjectOutputStream(socket.getOutputStream());
+      in = new ObjectInputStream(socket.getInputStream());
+      System.out.println("streams created");
+
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    login();
+
+    buildChatRoom(primaryStage);
+  }
+
+  public void login() {
     Dialog<String> dialog = new TextInputDialog();
     dialog.setTitle("Login");
     dialog.setHeaderText(null);
@@ -60,18 +75,7 @@ public class Controller implements Initializable {
     Optional<String> input = dialog.showAndWait();
 
     if (input.isPresent() && !input.get().isEmpty()) {
-      socket = new Socket();
       try {
-        InetAddress addre = InetAddress.getByName(HOST);
-
-        InetSocketAddress socketAddress = new InetSocketAddress(addre, PORT);
-        socket.connect(socketAddress);
-
-        out = new ObjectOutputStream(socket.getOutputStream());
-        in = new ObjectInputStream(socket.getInputStream());
-        System.out.println("streams created");
-
-        // login with duplicate name check
         boolean isNameDup = true;
         do {
           username = input.get();
@@ -86,7 +90,6 @@ public class Controller implements Initializable {
           System.out.println("client rsvmsg: " + rsvmsg.getData());
           if (rsvmsg.getType() == MessageType.SUCCESS) {
             isNameDup = false;
-//            messageList.add(rsvmsg);
           }
         } while (isNameDup);
 
@@ -100,9 +103,74 @@ public class Controller implements Initializable {
     }
   }
 
-  @FXML
-  public void createPrivateChat() {
+  public void buildChatRoom(Stage primaryStage) {
+    BorderPane root = new BorderPane();
 
+    // 创建一个包含标题标签和“新建聊天”按钮的顶部面板
+    HBox topPane = new HBox();
+    topPane.setAlignment(Pos.CENTER);
+    topPane.setPadding(new Insets(10));
+    topPane.setSpacing(10);
+    topPane.getChildren().addAll(createNewChatButton());
+
+    // 创建一个显示聊天历史记录的列表视图
+    ListView<String> chatHistoryListView = new ListView<>();
+    chatHistoryListView.getItems().addAll("聊天室1", "聊天室2", "聊天室3", "聊天室4");
+    ObservableList<String> recordStrs = FXCollections.observableArrayList();
+    for (ChatRecord record : records) {
+      recordStrs.add(record.toString());
+    }
+    chatHistoryListView.setItems(recordStrs);
+    chatHistoryListView.setOnMouseClicked(event -> {
+      // 处理列表项的点击事件，打开相应的聊天窗口
+      String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
+      if (selectedItem != null) {
+        ChatRecord record = getRecordByName(selectedItem);
+        try {
+          openChat(record);
+        } catch (NullPointerException e) {
+          e.printStackTrace();
+        }
+      }
+    });
+
+    // 创建一个包含聊天历史记录列表视图的中心面板
+    VBox centerPane = new VBox();
+    centerPane.setAlignment(Pos.CENTER);
+    centerPane.setPadding(new Insets(10));
+    centerPane.setSpacing(10);
+    centerPane.getChildren().addAll(new Label("history"), chatHistoryListView);
+
+    // 将顶部面板和中心面板添加到主面板中
+    root.setTop(topPane);
+    root.setCenter(centerPane);
+
+    // 创建场景并设置主面板
+    Scene scene = new Scene(root, 400, 400);
+    primaryStage.setScene(scene);
+    primaryStage.setTitle("ChatRoom");
+    primaryStage.show();
+  }
+
+  private Button createNewChatButton() {
+    Button newChatButton = new Button("new Chat");
+    newChatButton.setOnAction(event -> {
+      createChat();
+    });
+    return newChatButton;
+  }
+
+  private ChatRecord getRecordByName(String names) {
+    List<String> namesList = Arrays.asList(names.split(","));
+    for (ChatRecord record : records) {
+      if (record.getNames().containsAll(namesList) && namesList.containsAll(record.getNames())) {
+        return record;
+      }
+    }
+    return null;
+  }
+
+  public void createChat() {
     // get user list
     List<String> userList = new ArrayList<>();
     try {
@@ -171,46 +239,32 @@ public class Controller implements Initializable {
 
   }
 
-  /**
-   * A new dialog should contain a multi-select list, showing all user's name. You can select
-   * several users that will be joined in the group chat, including yourself.
-   * <p>
-   * The naming rule for group chats is similar to WeChat: If there are > 3 users: display the first
-   * three usernames, sorted in lexicographic order, then use ellipsis with the number of users, for
-   * example: UserA, UserB, UserC... (10) If there are <= 3 users: do not display the ellipsis, for
-   * example: UserA, UserB (2)
-   */
-  @FXML
-  public void createGroupChat() {
-  }
-
-
   public void openChat(ChatRecord record) {
-    // 创建 UI 元素
+    // create UI elements
     BorderPane root = new BorderPane();
     TextArea chatArea = new TextArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
 
-    // 设置 UI 元素属性
+    // set UI elements' property
     chatArea.setEditable(false);
     chatArea.setWrapText(true);
     inputField.setPromptText("Type your message here...");
 
-    // 添加 UI 元素到容器中
+    // add UI elements into container
     root.setCenter(chatArea);
     HBox inputBox = new HBox(10, inputField, sendButton);
     inputBox.setPadding(new Insets(10));
     root.setBottom(inputBox);
 
-    // 创建一个 Scene 并设置到 Stage 中
+    // create a  Scene, put it into Stage
     Scene scene = new Scene(root, 400, 400);
     Stage stage = new Stage();
     String names = String.join(",", record.getNames());
     stage.setTitle(names);
     stage.setScene(scene);
 
-    // 在 sendButton 被点击时发送消息
+    // set action on sendButton
     sendButton.setOnAction(event -> {
       String message = inputField.getText().trim();
       if (!message.isEmpty()) {
@@ -230,41 +284,19 @@ public class Controller implements Initializable {
       }
     });
 
-    // 在窗口关闭时通知聊天记录保存
+    // store records before close
 //      stage.setOnCloseRequest(event -> {
-//        // 保存聊天记录
 //        record.saveChatRecord(chatArea.getText());
 //      });
 
-    // 加载保存的聊天记录
+    // load records
     List<String> messages = record.getMessages();
     if (messages != null && !messages.isEmpty()) {
       String messagesStr = String.join("\n", messages);
       chatArea.setText(messagesStr);
     }
 
-    // 显示窗口
     stage.show();
-  }
-
-
-  /**
-   * Sends the message to the <b>currently selected</b> chat.
-   * <p>
-   * Blank messages are not allowed. After sending the message, you should clear the text input
-   * field.
-   */
-  @FXML
-  public void doSendMessage() {
-    try {
-//      Message sndmsg = new Message(System.currentTimeMillis(), username,
-//          new String[]{"default"},
-//          "userList", MessageType.CHAT);
-//      out.writeObject(sndmsg);
-//      out.flush();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
   }
 
   private class ChatRecord {
@@ -283,48 +315,10 @@ public class Controller implements Initializable {
     public List<String> getMessages() {
       return messages;
     }
-  }
-
-  /**
-   * You may change the cell factory if you changed the design of {@code Message} model. Hint: you
-   * may also define a cell factory for the chats displayed in the left panel, or simply override
-   * the toString method.
-   */
-  private class MessageCellFactory implements Callback<ListView<Message>, ListCell<Message>> {
 
     @Override
-    public ListCell<Message> call(ListView<Message> param) {
-      return new ListCell<Message>() {
-
-        @Override
-        public void updateItem(Message msg, boolean empty) {
-          super.updateItem(msg, empty);
-          if (empty || Objects.isNull(msg)) {
-            return;
-          }
-
-          HBox wrapper = new HBox();
-          Label nameLabel = new Label(msg.getSentBy());
-          Label msgLabel = new Label(msg.getData());
-
-          nameLabel.setPrefSize(50, 20);
-          nameLabel.setWrapText(true);
-          nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
-
-          if (username.equals(msg.getSentBy())) {
-            wrapper.setAlignment(Pos.TOP_RIGHT);
-            wrapper.getChildren().addAll(msgLabel, nameLabel);
-            msgLabel.setPadding(new Insets(0, 20, 0, 0));
-          } else {
-            wrapper.setAlignment(Pos.TOP_LEFT);
-            wrapper.getChildren().addAll(nameLabel, msgLabel);
-            msgLabel.setPadding(new Insets(0, 0, 0, 20));
-          }
-
-          setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-          setGraphic(wrapper);
-        }
-      };
+    public String toString() {
+      return String.join(",", names);
     }
   }
 }
