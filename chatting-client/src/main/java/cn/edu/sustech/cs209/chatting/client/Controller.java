@@ -23,6 +23,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -32,6 +33,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
 import javafx.scene.control.ListView;
+import javafx.scene.control.SelectionMode;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -45,7 +47,7 @@ public class Controller implements Initializable {
 
   @FXML
   ListView<Message> chatContentList;
-//  ObservableList<Message> messageList = FXCollections.observableArrayList();
+  ObservableList<Message> messageList = FXCollections.observableArrayList();
 
   private final String HOST = "localhost";
   private final int PORT = 8080;
@@ -106,8 +108,8 @@ public class Controller implements Initializable {
       Platform.exit();
     }
 
-//    chatContentList.setItems(messageList);
-//    chatContentList.setCellFactory(new MessageCellFactory());
+    chatContentList.setItems(messageList);
+    chatContentList.setCellFactory(new MessageCellFactory());
   }
 
   @FXML
@@ -132,67 +134,42 @@ public class Controller implements Initializable {
     }
 
     // show users
-    ObservableList<ChatRecord> chatRecords = FXCollections.observableArrayList(records);
-    ListView<ChatRecord> listView = new ListView<>(chatRecords);
-
-    listView.setCellFactory(new Callback<ListView<ChatRecord>, ListCell<ChatRecord>>() {
-      @Override
-      public ListCell<ChatRecord> call(ListView<ChatRecord> listView) {
-        return new ListCell<ChatRecord>() {
-          @Override
-          protected void updateItem(ChatRecord record, boolean empty) {
-            super.updateItem(record, empty);
-            if (record != null && !empty) {
-              setText(record.getNames().toString() + ": " + record.getMessages().get(record.getMessages().size() - 1));
-            } else {
-              setText(null);
-            }
-          }
-        };
-      }
-    });
-
-    listView.setOnMouseClicked(event -> {
-      if (!listView.getSelectionModel().isEmpty()) {
-        ChatRecord record = listView.getSelectionModel().getSelectedItem();
-        // Do something with the selected record
-      }
-    });
-
-
-
-    // create checkboxes for each user
-    List<CheckBox> userCheckboxes = new ArrayList<>();
-    for (String user : userList) {
-      CheckBox checkBox = new CheckBox(user);
-      userCheckboxes.add(checkBox);
+    CheckBox[] userCheckboxes = new CheckBox[userList.size()];
+    for (int i = 0; i < userList.size(); i++) {
+      userCheckboxes[i] = new CheckBox(userList.get(i));
     }
-
     Button okBtn = new Button("OK");
-    okBtn.setOnAction(e -> {
-      // get selected users
+    okBtn.setOnAction(event -> {
       List<String> selectedUsers = new ArrayList<>();
-      for (CheckBox checkBox : userCheckboxes) {
-        if (checkBox.isSelected()) {
-          selectedUsers.add(checkBox.getText());
+      for (CheckBox cb : userCheckboxes) {
+        if (cb.isSelected()) {
+          selectedUsers.add(cb.getText());
         }
       }
-      // check if chat already exists for selected users
-      boolean chatExists = false;
+
+      // check if chat records with these users already exist
+      ChatRecord existingRecord = null;
       for (ChatRecord record : records) {
-        if (record.getNames().containsAll(selectedUsers)) {
-          // chat already exists, select the existing chat item
-          chatList.getSelectionModel().select(record);
-          chatExists = true;
+        List<String> recordNames = record.getNames();
+        if (recordNames.size() == selectedUsers.size() && recordNames.containsAll(selectedUsers)) {
+          existingRecord = record;
           break;
         }
       }
-      if (!chatExists) {
-        // create new chat item and select it
-        ChatRecord record = new ChatRecord(selectedUsers);
-        records.add(record);
-        chatList.getSelectionModel().select(record);
+
+      if (existingRecord != null) {
+        openChat(existingRecord);
+      } else {
+        // create new chat record
+        ChatRecord newRecord = new ChatRecord(selectedUsers);
+        records.add(newRecord);
+        openChat(newRecord);
       }
+
+      // close dialog
+      Node source = (Node) event.getSource();
+      Stage stage = (Stage) source.getScene().getWindow();
+      stage.close();
     });
 
     VBox box = new VBox(10);
@@ -203,53 +180,8 @@ public class Controller implements Initializable {
     Stage stage = new Stage();
     stage.setScene(new Scene(box));
     stage.showAndWait();
+
   }
-
-
-  @FXML
-//  public void createPrivateChat() {
-//    AtomicReference<String> user = new AtomicReference<>();
-//
-//    Stage stage = new Stage();
-//    ComboBox<String> userSel = new ComboBox<>();
-//
-//    try {
-//      Message sndmsg = new Message(System.currentTimeMillis(), username,
-//          new String[]{"default"},
-//          "userList", MessageType.REQUEST);
-//      out.writeObject(sndmsg);
-//      out.flush();
-//      System.out.println("client sndmsg: " + sndmsg.getData());
-//
-//      Message rsvmsg = (Message) in.readObject();
-//      System.out.println("client rsvmsg: " + rsvmsg.getData());
-//      String userListStr = rsvmsg.getData();
-//      List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-////      userList.remove(username);
-//
-//      userSel.getItems().addAll(userList);
-//
-//    } catch (IOException | ClassNotFoundException e) {
-//      e.printStackTrace();
-//    }
-//
-//    Button okBtn = new Button("OK");
-//    okBtn.setOnAction(e -> {
-//      user.set(userSel.getSelectionModel().getSelectedItem());
-//      stage.close();
-//    });
-//
-//    HBox box = new HBox(10);
-//    box.setAlignment(Pos.CENTER);
-//    box.setPadding(new Insets(20, 20, 20, 20));
-//    box.getChildren().addAll(userSel, okBtn);
-//    stage.setScene(new Scene(box));
-//    stage.showAndWait();
-//
-//    // TODO: if the current user already chatted with the selected user, just open the chat with that user
-//    // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-//
-//  }
 
   /**
    * A new dialog should contain a multi-select list, showing all user's name. You can select
@@ -286,7 +218,7 @@ public class Controller implements Initializable {
     // 创建一个 Scene 并设置到 Stage 中
     Scene scene = new Scene(root, 400, 400);
     Stage stage = new Stage();
-    stage.setTitle(record.getNames());
+    stage.setTitle(record.getNames().toString());
     stage.setScene(scene);
 
     // 在 sendButton 被点击时发送消息
