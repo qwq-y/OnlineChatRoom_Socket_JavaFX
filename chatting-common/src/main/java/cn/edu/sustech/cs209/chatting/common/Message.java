@@ -7,7 +7,7 @@ public class Message implements Serializable {
     private Long timestamp;
     // System.currentTimeMillis()
 
-    private String sentBy;
+    private String sentBy;        // 要再加一个属性，区分在群聊中发消息的发送者和群聊，sentBy这时为群聊名
     // "server" or username
 
     private String sendTo;
@@ -25,7 +25,7 @@ public class Message implements Serializable {
      */
 
     private MessageType type;
-    //  LOGIN, REQUIRE, EXIT, CHAT, WARNING, SUCCESS
+    //  LOGIN, REQUIRE, RESPOND, EXIT, CHAT, WARNING, SUCCESS
 
     public Message(Long timestamp, String sentBy, String sendTo, String data, MessageType type) {
         this.timestamp = timestamp;

@@ -2,7 +2,6 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.InetAddress;
@@ -42,11 +41,14 @@ public class Controller extends Application {
   private ObjectInputStream in;
   private ObjectOutputStream out;
 
+  private volatile Message rsvmsg;
+
   String username;
   List<ChatRecord> records = new ArrayList<>();
+  ListView<String> chatHistoryListView = new ListView<>();
 
   @Override
-  public void start (Stage primaryStage) {
+  public void start(Stage primaryStage) {
 
     try {
       socket = new Socket();
@@ -62,9 +64,66 @@ public class Controller extends Application {
       e.printStackTrace();
     }
 
+    Thread thread = new Thread(new Runnable() {
+      @Override
+      public void run() {
+        while (true) {
+          try {
+            rsvmsg = (Message) in.readObject();
+            System.out.println("client rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
+            switch (rsvmsg.getType()) {
+              case CHAT:
+                receiveChatMessage(rsvmsg);
+                break;
+              case RESPOND:
+                String userListStr = rsvmsg.getData();
+                List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
+                userList.remove(username);
+                createChat(userList);
+                break;
+              case SUCCESS:
+                if (rsvmsg.getData().equals("username ok")) {
+
+                }
+                break;
+              case WARNING:
+                if (rsvmsg.getData().equals("duplicate name")) {
+                  login();
+                }
+                break;
+            }
+          } catch (Exception e) {
+            e.printStackTrace();
+          }
+        }
+      }
+    });
+    thread.start();
+
     login();
 
     buildChatRoom(primaryStage);
+
+  }
+
+  public void receiveChatMessage(Message rsvmsg) {
+    Platform.runLater(() -> {
+      List<String> names = Arrays.asList(
+          rsvmsg.getSentBy().split(","));
+      // TODO: 要再加一个属性，区分在群聊中发消息的发送者和群聊，sentBy这时为群聊名
+      ChatRecord existingRecord = getExistingRecord(names);
+      if (existingRecord != null) {
+        existingRecord.updateMessage(rsvmsg);
+        // TODO: 好像应该先判断下是否已经打开
+        openChat(existingRecord);
+      } else {
+        ChatRecord newRecord = new ChatRecord(names);
+        newRecord.updateMessage(rsvmsg);
+        records.add(newRecord);
+        openChat(newRecord);
+      }
+      chatHistoryListView.refresh();
+    });
   }
 
   public void login() {
@@ -75,9 +134,7 @@ public class Controller extends Application {
     Optional<String> input = dialog.showAndWait();
 
     if (input.isPresent() && !input.get().isEmpty()) {
-      try {
-        boolean isNameDup = true;
-        do {
+        try {
           username = input.get();
           System.out.println("input username: " + username);
           Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
@@ -86,16 +143,9 @@ public class Controller extends Application {
           out.flush();
           System.out.println("client sndmsg: " + sndmsg.getData());
 
-          Message rsvmsg = (Message) in.readObject();
-          System.out.println("client rsvmsg: " + rsvmsg.getData());
-          if (rsvmsg.getType() == MessageType.SUCCESS) {
-            isNameDup = false;
-          }
-        } while (isNameDup);
-
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
 
     } else {
       System.out.println("Invalid username " + input + ", exiting");
@@ -106,7 +156,7 @@ public class Controller extends Application {
   public void buildChatRoom(Stage primaryStage) {
     BorderPane root = new BorderPane();
 
-    // 创建一个包含标题标签和“新建聊天”按钮的顶部面板
+    // 创建一个包含“新建聊天”按钮的顶部面板
     HBox topPane = new HBox();
     topPane.setAlignment(Pos.CENTER);
     topPane.setPadding(new Insets(10));
@@ -114,7 +164,6 @@ public class Controller extends Application {
     topPane.getChildren().addAll(createNewChatButton());
 
     // 创建一个显示聊天历史记录的列表视图
-    ListView<String> chatHistoryListView = new ListView<>();
     chatHistoryListView.getItems().addAll("聊天室1", "聊天室2", "聊天室3", "聊天室4");
     ObservableList<String> recordStrs = FXCollections.observableArrayList();
     for (ChatRecord record : records) {
@@ -148,14 +197,14 @@ public class Controller extends Application {
     // 创建场景并设置主面板
     Scene scene = new Scene(root, 400, 400);
     primaryStage.setScene(scene);
-    primaryStage.setTitle("ChatRoom");
+    primaryStage.setTitle("ChatRoom: " + username);
     primaryStage.show();
   }
 
   private Button createNewChatButton() {
-    Button newChatButton = new Button("new Chat");
+    Button newChatButton = new Button("new chat");
     newChatButton.setOnAction(event -> {
-      createChat();
+      getUserList();
     });
     return newChatButton;
   }
@@ -170,26 +219,19 @@ public class Controller extends Application {
     return null;
   }
 
-  public void createChat() {
-    // get user list
-    List<String> userList = new ArrayList<>();
+  public void getUserList() {
     try {
       Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
           "userList", MessageType.REQUEST);
       out.writeObject(sndmsg);
       out.flush();
       System.out.println("client sndmsg: " + sndmsg.getData());
-
-      Message rsvmsg = (Message) in.readObject();
-      System.out.println("client rsvmsg: " + rsvmsg.getData());
-      String userListStr = rsvmsg.getData();
-      userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-      userList.remove(username);
-
-    } catch (IOException | ClassNotFoundException e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
+  }
 
+  public void createChat(List<String> userList) {
     // create user checkboxes, and listen on selection
     CheckBox[] userCheckboxes = new CheckBox[userList.size()];
     for (int i = 0; i < userList.size(); i++) {
@@ -205,14 +247,7 @@ public class Controller extends Application {
       }
 
       // check if chat records with these users already exist
-      ChatRecord existingRecord = null;
-      for (ChatRecord record : records) {
-        List<String> recordNames = record.getNames();
-        if (recordNames.size() == selectedUsers.size() && recordNames.containsAll(selectedUsers)) {
-          existingRecord = record;
-          break;
-        }
-      }
+      ChatRecord existingRecord = getExistingRecord(selectedUsers);
       if (existingRecord != null) {
         openChat(existingRecord);
       } else {
@@ -228,15 +263,28 @@ public class Controller extends Application {
       stage.close();
     });
 
-    VBox box = new VBox(10);
-    box.setAlignment(Pos.CENTER);
-    box.setPadding(new Insets(20, 20, 20, 20));
-    box.getChildren().addAll(userCheckboxes);
-    box.getChildren().add(okBtn);
-    Stage stage = new Stage();
-    stage.setScene(new Scene(box));
-    stage.showAndWait();
+    Platform.runLater(() -> {
+      VBox box = new VBox(10);
+      box.setAlignment(Pos.CENTER);
+      box.setPadding(new Insets(20, 20, 20, 20));
+      box.getChildren().addAll(userCheckboxes);
+      box.getChildren().add(okBtn);
+      Stage stage = new Stage();
+      stage.setScene(new Scene(box));
+      stage.showAndWait();
+    });
+  }
 
+  private ChatRecord getExistingRecord(List<String> names) {
+    ChatRecord existingRecord = null;
+    for (ChatRecord record : records) {
+      List<String> recordNames = record.getNames();
+      if (recordNames.size() == names.size() && recordNames.containsAll(names)) {
+        existingRecord = record;
+        break;
+      }
+    }
+    return existingRecord;
   }
 
   public void openChat(ChatRecord record) {
@@ -273,7 +321,8 @@ public class Controller extends Application {
         inputField.clear();
 
         try {
-          Message sndmsg = new Message(System.currentTimeMillis(), username, names, message, MessageType.CHAT);
+          Message sndmsg = new Message(System.currentTimeMillis(), username, names, message,
+              MessageType.CHAT);
           out.writeObject(sndmsg);
           out.flush();
           System.out.println("client choose user to chat with: " + names);
@@ -290,9 +339,17 @@ public class Controller extends Application {
 //      });
 
     // load records
-    List<String> messages = record.getMessages();
+    List<Message> messages = record.getMessages();
     if (messages != null && !messages.isEmpty()) {
-      String messagesStr = String.join("\n", messages);
+      StringBuilder messagesSb = null;
+      for (Message m : messages) {
+        messagesSb.append(m + "\n");
+      }
+      int len = messagesSb.length();
+      if (len > 0 && messagesSb.charAt(len - 1) == '\n') {
+        messagesSb.deleteCharAt(len - 1);
+      }
+      String messagesStr = messagesSb.toString();
       chatArea.setText(messagesStr);
     }
 
@@ -301,8 +358,8 @@ public class Controller extends Application {
 
   private class ChatRecord {
 
-    List<String> names = new ArrayList<>();   // the opposite user
-    List<String> messages = new ArrayList<>();
+    private List<String> names = new ArrayList<>();   // the opposite user
+    private List<Message> messages = new ArrayList<>();
 
     public ChatRecord(List<String> names) {
       this.names = names;
@@ -312,8 +369,12 @@ public class Controller extends Application {
       return names;
     }
 
-    public List<String> getMessages() {
+    public List<Message> getMessages() {
       return messages;
+    }
+
+    public void updateMessage(Message m) {
+      messages.add(m);
     }
 
     @Override
@@ -321,4 +382,5 @@ public class Controller extends Application {
       return String.join(",", names);
     }
   }
+
 }

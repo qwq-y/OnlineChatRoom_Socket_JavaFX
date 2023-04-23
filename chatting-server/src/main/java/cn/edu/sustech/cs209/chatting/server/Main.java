@@ -56,7 +56,7 @@ public class Main {
       try {
         while (true) {
           Message rsvmsg = (Message) in.readObject();
-          System.out.println("server rsvmsg: " + rsvmsg.getData());
+          System.out.println("server rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
           if (rsvmsg != null) {
             switch (rsvmsg.getType()) {
               case LOGIN:
