@@ -30,9 +30,11 @@ import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.Popup;
 import javafx.stage.Stage;
 
 public class ClientMain extends Application {
@@ -320,6 +322,7 @@ public class ClientMain extends Application {
     TextArea chatArea = record.getChatArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
+    Button emojiButton = new Button("\uD83D\uDE00");
 
     // set UI elements' property
     chatArea.setEditable(false);
@@ -328,7 +331,7 @@ public class ClientMain extends Application {
 
     // add UI elements into container
     root.setCenter(chatArea);
-    HBox inputBox = new HBox(10, inputField, sendButton);
+    HBox inputBox = new HBox(10, inputField, emojiButton, sendButton);
     inputBox.setPadding(new Insets(10));
     root.setBottom(inputBox);
 
@@ -361,6 +364,33 @@ public class ClientMain extends Application {
         } catch (Exception e) {
           e.printStackTrace();
         }
+      }
+    });
+
+    // set action on emojiButton
+    emojiButton.setOnAction(event -> {
+      // create emoji list popup
+      Popup emojiPopup = new Popup();
+      ListView<String> emojiList = new ListView<>(FXCollections.observableArrayList(
+          "😃", "😊", "😍", "🤔", "😴", "🤢"));
+      emojiPopup.getContent().add(emojiList);
+
+      // set action on emoji list items
+      emojiList.setOnMouseClicked(clickEvent -> {
+        String selectedEmoji = emojiList.getSelectionModel().getSelectedItem();
+        inputField.insertText(inputField.getCaretPosition(), selectedEmoji);
+        emojiPopup.hide();
+      });
+
+      // show emoji list popup
+      emojiPopup.show(stage, stage.getX() + inputBox.getBoundsInParent().getMinX() + emojiButton.getWidth(), stage.getY() + inputBox.getBoundsInParent().getMinY() + inputBox.getHeight());
+    });
+
+    // enable typing Enter key to send message
+    inputField.setOnKeyPressed(event -> {
+      if (event.getCode() == KeyCode.ENTER) {
+        sendButton.fire();
+        event.consume();
       }
     });
 
