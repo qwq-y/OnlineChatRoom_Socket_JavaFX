@@ -27,6 +27,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -35,6 +36,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
+import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
 
 public class ClientMain extends Application {
@@ -135,8 +137,10 @@ public class ClientMain extends Application {
       openNewChat(newRecord);
     }
 
-    // update history
-//    chatHistoryListView.refresh();
+    updateHistoryListView();
+  }
+
+  private void updateHistoryListView() {
     ObservableList<String> recordStrs = FXCollections.observableArrayList();
     for (ChatRecord record : records) {
       recordStrs.add(record.toString());
@@ -189,7 +193,7 @@ public class ClientMain extends Application {
       recordStrs.add(record.toString());
     }
     chatHistoryListView.setItems(recordStrs);
-    chatHistoryListView.getItems().add("test");
+    chatHistoryListView.getItems().add("no history...");
     chatHistoryListView.setOnMouseClicked(event -> {
       // 处理列表项的点击事件，打开相应的聊天窗口
       String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
@@ -322,7 +326,7 @@ public class ClientMain extends Application {
     TextArea chatArea = record.getChatArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
-    Button emojiButton = new Button("\uD83D\uDE00");
+    Button emojiButton = new Button("😊");
 
     // set UI elements' property
     chatArea.setEditable(false);
@@ -361,6 +365,7 @@ public class ClientMain extends Application {
           System.out.println("client sndmsg: " + sndmsg.getData());
           loadRecords(record, stage, chatArea);
           stage.show();
+          updateHistoryListView();
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -371,19 +376,30 @@ public class ClientMain extends Application {
     emojiButton.setOnAction(event -> {
       // create emoji list popup
       Popup emojiPopup = new Popup();
-      ListView<String> emojiList = new ListView<>(FXCollections.observableArrayList(
-          "😃", "😊", "😍", "🤔", "😴", "🤢"));
-      emojiPopup.getContent().add(emojiList);
+      HBox emojiButtons = new HBox();
+      String[] emojis = {"😊", "😃", "😍", "🤔", "😴", "🤢", "😘", "❤", "👌"};
+      for (String emoji : emojis) {
+        Button button = new Button(emoji);
+        button.setStyle("-fx-font-size: 15px; -fx-background-color: transparent;");
+        button.setOnAction(buttonEvent -> {
+          inputField.insertText(inputField.getCaretPosition(), emoji);
+          emojiPopup.hide();
+        });
+        emojiButtons.getChildren().add(button);
+      }
+      VBox emojiBox = new VBox(emojiButtons);
+      emojiBox.setStyle("-fx-background-color: white; -fx-border-color: gray; -fx-border-width: 0.5px;");
 
-      // set action on emoji list items
-      emojiList.setOnMouseClicked(clickEvent -> {
-        String selectedEmoji = emojiList.getSelectionModel().getSelectedItem();
-        inputField.insertText(inputField.getCaretPosition(), selectedEmoji);
-        emojiPopup.hide();
-      });
+      emojiPopup.getContent().add(emojiBox);
+
+      // set style for emoji list popup
+      emojiPopup.setAutoHide(true);
+      emojiPopup.setAnchorLocation(PopupWindow.AnchorLocation.CONTENT_TOP_LEFT);
 
       // show emoji list popup
-      emojiPopup.show(stage, stage.getX() + inputBox.getBoundsInParent().getMinX() + emojiButton.getWidth(), stage.getY() + inputBox.getBoundsInParent().getMinY() + inputBox.getHeight());
+      emojiPopup.show(emojiButton.getScene().getWindow(),
+          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinX(),
+          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinY() + emojiButton.getHeight());
     });
 
     // enable typing Enter key to send message
@@ -393,11 +409,6 @@ public class ClientMain extends Application {
         event.consume();
       }
     });
-
-    // store records before close
-//      stage.setOnCloseRequest(event -> {
-//        record.saveChatRecord(chatArea.getText());
-//      });
 
     loadRecords(record, stage, chatArea);
 
@@ -457,7 +468,7 @@ public class ClientMain extends Application {
       } else if (names.size() == 2) {
         return username + "," + String.join(",", names);
       } else {
-        return username + "," + names.get(0) + "," + names.get(1) + "(" + (names.size()+1) + ")";
+        return username + "," + names.get(0) + "," + names.get(1) + "(" + (names.size() + 1) + ")";
       }
     }
 
@@ -467,7 +478,14 @@ public class ClientMain extends Application {
 
     @Override
     public String toString() {
-      return String.join(",", names);
+      String lastmsg = messages.get(messages.size()-1).getData();
+      if (lastmsg == null) {
+        lastmsg = "";
+      }
+      if (lastmsg.length() > 32) {
+        lastmsg = lastmsg.substring(0, 32) + "...";
+      }
+      return getTitle() + ": " + lastmsg;
     }
   }
 
