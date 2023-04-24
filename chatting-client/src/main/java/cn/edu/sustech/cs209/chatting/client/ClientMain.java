@@ -43,8 +43,6 @@ public class ClientMain extends Application {
   BlockingQueue<Message> messageQueue;
   private ObjectOutputStream out;
 
-  private volatile Message rsvmsg;
-
   String username;
   List<ChatRecord> records = new ArrayList<>();
   ListView<String> chatHistoryListView = new ListView<>();
@@ -64,7 +62,6 @@ public class ClientMain extends Application {
       login();
 
       Platform.setImplicitExit(false);
-//      Platform.runLater(()->System.out.println("Inside Platform.runLater()"));
 
       Timer timer = new Timer();
       Runnable runnable = new Runnable() {
@@ -130,12 +127,21 @@ public class ClientMain extends Application {
       existingRecord.updateMessage(rsvmsg);
       openExistChat(existingRecord);
     } else {
-      ChatRecord newRecord = new ChatRecord(names, new Stage(), new TextArea());
+      ChatRecord newRecord = new ChatRecord(username, names, new Stage(), new TextArea());
       newRecord.updateMessage(rsvmsg);
       records.add(newRecord);
       openNewChat(newRecord);
     }
-    chatHistoryListView.refresh();
+
+    // update history
+//    chatHistoryListView.refresh();
+    ObservableList<String> recordStrs = FXCollections.observableArrayList();
+    for (ChatRecord record : records) {
+      recordStrs.add(record.toString());
+    }
+    chatHistoryListView.setItems(recordStrs);
+    Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
+    primaryStage.show();
   }
 
   public void login() {
@@ -266,7 +272,7 @@ public class ClientMain extends Application {
         openExistChat(existingRecord);
       } else {
         // create new chat record
-        ChatRecord newRecord = new ChatRecord(selectedUsers, new Stage(), new TextArea());
+        ChatRecord newRecord = new ChatRecord(username, selectedUsers, new Stage(), new TextArea());
         records.add(newRecord);
         openNewChat(newRecord);
       }
@@ -331,11 +337,7 @@ public class ClientMain extends Application {
     Stage stage = record.getStage();
     String names = String.join(",", record.getNames());
     String title = record.getTitle();
-    if (title != null) {
-      stage.setTitle(title);
-    } else {
-      stage.setTitle(names);
-    }
+    stage.setTitle(title);
     stage.setScene(scene);
 
     // set action on sendButton
@@ -354,6 +356,8 @@ public class ClientMain extends Application {
           out.flush();
           System.out.println("client choose user to chat with: " + names);
           System.out.println("client sndmsg: " + sndmsg.getData());
+          loadRecords(record, stage, chatArea);
+          stage.show();
         } catch (Exception e) {
           e.printStackTrace();
         }
@@ -388,12 +392,14 @@ public class ClientMain extends Application {
 
   private class ChatRecord {
 
+    private String username;
     private List<String> names = new ArrayList<>();   // who will receive this sndmsg
     private List<Message> messages = new ArrayList<>();
     private Stage stage;
     private TextArea chatArea;
 
-    public ChatRecord(List<String> names, Stage stage, TextArea chatArea) {
+    public ChatRecord(String username, List<String> names, Stage stage, TextArea chatArea) {
+      this.username = username;
       this.names = names;
       this.stage = stage;
       this.chatArea = chatArea;
@@ -416,19 +422,13 @@ public class ClientMain extends Application {
     }
 
     public String getTitle() {
-      if (messages.size() == 0) {
-        return null;
+      if (names.size() == 1) {
+        return names.get(0);
+      } else if (names.size() == 2) {
+        return username + "," + String.join(",", names);
+      } else {
+        return username + "," + names.get(0) + "," + names.get(1) + "(" + (names.size()+1) + ")";
       }
-      String group = messages.get(0).getGroup();
-      String[] groupArr = group.split(",");
-      String title = group;   // groupArr.length == 3
-      if (groupArr.length < 3) {
-        title = String.join(",", names);
-      } else if (groupArr.length > 3) {
-        title = groupArr[0] + "," + groupArr[1] + "," + groupArr[2] + "("
-            + groupArr.length + ")";
-      }
-      return title;
     }
 
     public void updateMessage(Message m) {
