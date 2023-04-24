@@ -2,16 +2,16 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
-import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
@@ -38,7 +38,7 @@ public class Controller extends Application {
   private final String HOST = "localhost";
   private final int PORT = 8080;
   private Socket socket;
-  private ObjectInputStream in;
+  BlockingQueue<Message> messageQueue;
   private ObjectOutputStream out;
 
   private volatile Message rsvmsg;
@@ -51,79 +51,68 @@ public class Controller extends Application {
   public void start(Stage primaryStage) {
 
     try {
-      socket = new Socket();
-      InetAddress addre = InetAddress.getByName(HOST);
-      InetSocketAddress socketAddress = new InetSocketAddress(addre, PORT);
-      socket.connect(socketAddress);
+      socket = new Socket(HOST, PORT);
+      messageQueue = new LinkedBlockingQueue<>();
+
+      MySocketThread socketThread = new MySocketThread(socket, messageQueue);
+      socketThread.start();
 
       out = new ObjectOutputStream(socket.getOutputStream());
-      in = new ObjectInputStream(socket.getInputStream());
-      System.out.println("streams created");
+
+      login();
+
+      while (true) {
+        Message rsvmsg = messageQueue.poll(100, TimeUnit.MILLISECONDS);
+        if (rsvmsg != null) {
+          System.out.println("client rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
+          switch (rsvmsg.getType()) {
+            case CHAT:
+              receiveChatMessage(rsvmsg);
+              break;
+            case RESPOND:
+              String userListStr = rsvmsg.getData();
+              List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
+              userList.remove(username);
+              createChat(userList);
+              break;
+            case SUCCESS:
+              if (rsvmsg.getData().equals("username ok")) {
+                buildChatRoom(primaryStage);
+              }
+              break;
+            case WARNING:
+              if (rsvmsg.getData().equals("duplicate name")) {
+                login();
+              }
+              break;
+          }
+        } else {
+          Thread.sleep(2000);
+          System.out.println("do other things...");
+        }
+      }
 
     } catch (Exception e) {
       e.printStackTrace();
     }
-
-    Thread thread = new Thread(new Runnable() {
-      @Override
-      public void run() {
-        while (true) {
-          try {
-            rsvmsg = (Message) in.readObject();
-            System.out.println("client rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
-            switch (rsvmsg.getType()) {
-              case CHAT:
-                receiveChatMessage(rsvmsg);
-                break;
-              case RESPOND:
-                String userListStr = rsvmsg.getData();
-                List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-                userList.remove(username);
-                createChat(userList);
-                break;
-              case SUCCESS:
-                if (rsvmsg.getData().equals("username ok")) {
-
-                }
-                break;
-              case WARNING:
-                if (rsvmsg.getData().equals("duplicate name")) {
-                  login();
-                }
-                break;
-            }
-          } catch (Exception e) {
-            e.printStackTrace();
-          }
-        }
-      }
-    });
-    thread.start();
-
-    login();
-
-    buildChatRoom(primaryStage);
-
   }
 
   public void receiveChatMessage(Message rsvmsg) {
-    Platform.runLater(() -> {
-      List<String> names = Arrays.asList(
-          rsvmsg.getSentBy().split(","));
-      // TODO: 要再加一个属性，区分在群聊中发消息的发送者和群聊，sentBy这时为群聊名
-      ChatRecord existingRecord = getExistingRecord(names);
-      if (existingRecord != null) {
-        existingRecord.updateMessage(rsvmsg);
-        // TODO: 好像应该先判断下是否已经打开
-        openChat(existingRecord);
-      } else {
-        ChatRecord newRecord = new ChatRecord(names);
-        newRecord.updateMessage(rsvmsg);
-        records.add(newRecord);
-        openChat(newRecord);
-      }
-      chatHistoryListView.refresh();
-    });
+    List<String> names = Arrays.asList(
+        rsvmsg.getSentBy().split(","));
+    // TODO: 要再加一个属性，区分在群聊中发消息的发送者和群聊，sentBy这时为群聊名
+    ChatRecord existingRecord = getExistingRecord(names);
+    if (existingRecord != null) {
+      existingRecord.updateMessage(rsvmsg);
+      // TODO: 好像应该先判断下是否已经打开
+      openChat(existingRecord);
+    } else {
+      ChatRecord newRecord = new ChatRecord(names);
+      newRecord.updateMessage(rsvmsg);
+      records.add(newRecord);
+      openChat(newRecord);
+    }
+    chatHistoryListView.refresh();
   }
 
   public void login() {
@@ -134,18 +123,18 @@ public class Controller extends Application {
     Optional<String> input = dialog.showAndWait();
 
     if (input.isPresent() && !input.get().isEmpty()) {
-        try {
-          username = input.get();
-          System.out.println("input username: " + username);
-          Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
-              username, MessageType.LOGIN);
-          out.writeObject(sndmsg);
-          out.flush();
-          System.out.println("client sndmsg: " + sndmsg.getData());
+      try {
+        username = input.get();
+        System.out.println("input username: " + username);
+        Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
+            username, MessageType.LOGIN);
+        out.writeObject(sndmsg);
+        out.flush();
+        System.out.println("client sndmsg: " + sndmsg.getData());
 
-        } catch (Exception e) {
-          e.printStackTrace();
-        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
 
     } else {
       System.out.println("Invalid username " + input + ", exiting");
@@ -199,6 +188,7 @@ public class Controller extends Application {
     primaryStage.setScene(scene);
     primaryStage.setTitle("ChatRoom: " + username);
     primaryStage.show();
+
   }
 
   private Button createNewChatButton() {
@@ -263,16 +253,14 @@ public class Controller extends Application {
       stage.close();
     });
 
-    Platform.runLater(() -> {
-      VBox box = new VBox(10);
-      box.setAlignment(Pos.CENTER);
-      box.setPadding(new Insets(20, 20, 20, 20));
-      box.getChildren().addAll(userCheckboxes);
-      box.getChildren().add(okBtn);
-      Stage stage = new Stage();
-      stage.setScene(new Scene(box));
-      stage.showAndWait();
-    });
+    VBox box = new VBox(10);
+    box.setAlignment(Pos.CENTER);
+    box.setPadding(new Insets(20, 20, 20, 20));
+    box.getChildren().addAll(userCheckboxes);
+    box.getChildren().add(okBtn);
+    Stage stage = new Stage();
+    stage.setScene(new Scene(box));
+    stage.showAndWait();
   }
 
   private ChatRecord getExistingRecord(List<String> names) {
