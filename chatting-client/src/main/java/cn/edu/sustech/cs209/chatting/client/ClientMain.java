@@ -70,39 +70,39 @@ public class ClientMain extends Application {
       Runnable runnable = new Runnable() {
         @Override
         public void run() {
-            Message rsvmsg = null;
-            try {
-              rsvmsg = messageQueue.poll(100, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-              e.printStackTrace();
+          Message rsvmsg = null;
+          try {
+            rsvmsg = messageQueue.poll(100, TimeUnit.MILLISECONDS);
+          } catch (InterruptedException e) {
+            e.printStackTrace();
+          }
+          if (rsvmsg != null) {
+            System.out.println("client rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
+            switch (rsvmsg.getType()) {
+              case CHAT:
+                receiveChatMessage(rsvmsg);
+                break;
+              case RESPOND:
+                String userListStr = rsvmsg.getData();
+                List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
+                userList.remove(username);
+                createChat(userList);
+                break;
+              case SUCCESS:
+                if (rsvmsg.getData().equals("username ok")) {
+                  buildChatRoom(primaryStage);
+                }
+                break;
+              case WARNING:
+                if (rsvmsg.getData().equals("duplicate name")) {
+                  login();
+                }
+                break;
             }
-            if (rsvmsg != null) {
-              System.out.println("client rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
-              switch (rsvmsg.getType()) {
-                case CHAT:
-                  receiveChatMessage(rsvmsg);
-                  break;
-                case RESPOND:
-                  String userListStr = rsvmsg.getData();
-                  List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
-                  userList.remove(username);
-                  createChat(userList);
-                  break;
-                case SUCCESS:
-                  if (rsvmsg.getData().equals("username ok")) {
-                    buildChatRoom(primaryStage);
-                  }
-                  break;
-                case WARNING:
-                  if (rsvmsg.getData().equals("duplicate name")) {
-                    login();
-                  }
-                  break;
-              }
-            } else {
+          } else {
 //                  Thread.sleep(2000);
 //                  System.out.println("do other things...");
-            }
+          }
         }
       };
 
@@ -120,19 +120,20 @@ public class ClientMain extends Application {
   }
 
   public void receiveChatMessage(Message rsvmsg) {
-    List<String> names = Arrays.asList(
-        rsvmsg.getSentBy().split(","));
-    // TODO: 要再加一个属性，区分在群聊中发消息的发送者和群聊，sentBy这时为群聊名
+    List<String> names0 = Arrays.asList(
+        rsvmsg.getGroup().split(","));
+    List<String> names = new ArrayList<>(names0);
+    names.remove(username);
+
     ChatRecord existingRecord = getExistingRecord(names);
     if (existingRecord != null) {
       existingRecord.updateMessage(rsvmsg);
-      // TODO: 好像应该先判断下是否已经打开
-      openChat(existingRecord);
+      openExistChat(existingRecord);
     } else {
-      ChatRecord newRecord = new ChatRecord(names);
+      ChatRecord newRecord = new ChatRecord(names, new Stage(), new TextArea());
       newRecord.updateMessage(rsvmsg);
       records.add(newRecord);
-      openChat(newRecord);
+      openNewChat(newRecord);
     }
     chatHistoryListView.refresh();
   }
@@ -187,7 +188,7 @@ public class ClientMain extends Application {
       if (selectedItem != null) {
         ChatRecord record = getRecordByName(selectedItem);
         try {
-          openChat(record);
+          openExistChat(record);
         } catch (NullPointerException e) {
           e.printStackTrace();
         }
@@ -224,7 +225,8 @@ public class ClientMain extends Application {
   private ChatRecord getRecordByName(String names) {
     List<String> namesList = Arrays.asList(names.split(","));
     for (ChatRecord record : records) {
-      if (record.getNames().size() == namesList.size() && namesList.containsAll(record.getNames())) {
+      if (record.getNames().size() == namesList.size() && namesList.containsAll(
+          record.getNames())) {
         return record;
       }
     }
@@ -261,12 +263,12 @@ public class ClientMain extends Application {
       // check if chat records with these users already exist
       ChatRecord existingRecord = getExistingRecord(selectedUsers);
       if (existingRecord != null) {
-        openChat(existingRecord);
+        openExistChat(existingRecord);
       } else {
         // create new chat record
-        ChatRecord newRecord = new ChatRecord(selectedUsers);
+        ChatRecord newRecord = new ChatRecord(selectedUsers, new Stage(), new TextArea());
         records.add(newRecord);
-        openChat(newRecord);
+        openNewChat(newRecord);
       }
 
       // close dialog
@@ -285,29 +287,38 @@ public class ClientMain extends Application {
     stage.showAndWait();
   }
 
-  private ChatRecord getExistingRecord(List<String> names) {
+  private ChatRecord getExistingRecord(List<String> names0) {
+    List<String> names = new ArrayList<>(names0);
     ChatRecord existingRecord = null;
     for (ChatRecord record : records) {
       List<String> recordNames = record.getNames();
       if (recordNames.size() == names.size() && recordNames.containsAll(names)) {
         existingRecord = record;
+//        System.out.println("=============> found!");
         break;
       }
     }
     return existingRecord;
   }
 
-  public void openChat(ChatRecord record) {
+  public void openExistChat(ChatRecord record) {
+    Stage stage = record.getStage();
+    TextArea chatArea = record.getChatArea();
+    loadRecords(record, stage, chatArea);
+    stage.show();
+  }
+
+  public void openNewChat(ChatRecord record) {
     // create UI elements
     BorderPane root = new BorderPane();
-    TextArea chatArea = new TextArea();
+    TextArea chatArea = record.getChatArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
 
     // set UI elements' property
     chatArea.setEditable(false);
     chatArea.setWrapText(true);
-    inputField.setPromptText("Type your message here...");
+    inputField.setPromptText("chat as " + username + "...");
 
     // add UI elements into container
     root.setCenter(chatArea);
@@ -317,7 +328,7 @@ public class ClientMain extends Application {
 
     // create a  Scene, put it into Stage
     Scene scene = new Scene(root, 400, 400);
-    Stage stage = new Stage();
+    Stage stage = record.getStage();
     String names = String.join(",", record.getNames());
     String title = record.getTitle();
     if (title != null) {
@@ -338,6 +349,7 @@ public class ClientMain extends Application {
         try {
           Message sndmsg = new Message(System.currentTimeMillis(), username, names, message,
               MessageType.CHAT);
+          record.updateMessage(sndmsg);
           out.writeObject(sndmsg);
           out.flush();
           System.out.println("client choose user to chat with: " + names);
@@ -353,7 +365,12 @@ public class ClientMain extends Application {
 //        record.saveChatRecord(chatArea.getText());
 //      });
 
-    // load records
+    loadRecords(record, stage, chatArea);
+
+    stage.show();
+  }
+
+  private void loadRecords(ChatRecord record, Stage stage, TextArea chatArea) {
     List<Message> messages = record.getMessages();
     if (messages != null && !messages.isEmpty()) {
       StringBuilder messagesSb = new StringBuilder();
@@ -367,21 +384,31 @@ public class ClientMain extends Application {
       String messagesStr = messagesSb.toString();
       chatArea.setText(messagesStr);
     }
-
-    stage.show();
   }
 
   private class ChatRecord {
 
-    private List<String> names = new ArrayList<>();   // the opposite user
+    private List<String> names = new ArrayList<>();   // who will receive this sndmsg
     private List<Message> messages = new ArrayList<>();
+    private Stage stage;
+    private TextArea chatArea;
 
-    public ChatRecord(List<String> names) {
+    public ChatRecord(List<String> names, Stage stage, TextArea chatArea) {
       this.names = names;
+      this.stage = stage;
+      this.chatArea = chatArea;
     }
 
     public List<String> getNames() {
       return names;
+    }
+
+    public Stage getStage() {
+      return stage;
+    }
+
+    public TextArea getChatArea() {
+      return chatArea;
     }
 
     public List<Message> getMessages() {
@@ -392,9 +419,16 @@ public class ClientMain extends Application {
       if (messages.size() == 0) {
         return null;
       }
-      Message m = messages.get(0);
-      m.setGroup();
-      return m.getGroup();
+      String group = messages.get(0).getGroup();
+      String[] groupArr = group.split(",");
+      String title = group;   // groupArr.length == 3
+      if (groupArr.length < 3) {
+        title = String.join(",", names);
+      } else if (groupArr.length > 3) {
+        title = groupArr[0] + "," + groupArr[1] + "," + groupArr[2] + "("
+            + groupArr.length + ")";
+      }
+      return title;
     }
 
     public void updateMessage(Message m) {

@@ -35,6 +35,7 @@ public class Message implements Serializable {
     this.sendTo = sendTo;
     this.data = data;
     this.type = type;
+    group = sentBy + "," + sendTo;
   }
 
   public Long getTimestamp() {
@@ -47,19 +48,6 @@ public class Message implements Serializable {
 
   public String getSendTo() {
     return sendTo;
-  }
-
-  public void setGroup() {
-    String groupStr = sentBy + "," + sendTo;
-    String[] groupArr = groupStr.split(",");
-    if (groupArr.length < 3) {
-      group = sentBy;
-    } else if (groupArr.length == 3){
-      group = groupStr;
-    } else {
-      group = groupArr[0] + "," + groupArr[1] + "," + groupArr[2] + "("
-          + groupArr.length + ")";
-    }
   }
 
   public String getGroup() {
