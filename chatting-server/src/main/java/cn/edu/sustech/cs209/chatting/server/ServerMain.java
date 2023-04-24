@@ -142,7 +142,7 @@ public class ServerMain {
           ObjectOutputStream stream = itr.next();
           stream.writeObject(msg);
           stream.flush();
-          System.out.println("server sndmsg: " + msg);
+          System.out.println("server sndmsg: " + msg.getData());
         }
       } catch (Exception e) {
         e.printStackTrace();
