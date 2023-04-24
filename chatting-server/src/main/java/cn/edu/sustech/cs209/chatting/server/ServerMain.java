@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 
-public class Main {
+public class ServerMain {
 
   private static final String NAME = "server";
   private static final int PORT = 8080;

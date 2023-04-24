@@ -14,7 +14,7 @@
     <properties>
         <javafx.version>19.0.2.1</javafx.version>
 
-        <main-class.name>cn.edu.sustech.cs209.chatting.client.Controller</main-class.name>
+        <main-class.name>cn.edu.sustech.cs209.chatting.client.ClientMain</main-class.name>
     </properties>
 
     <dependencies>

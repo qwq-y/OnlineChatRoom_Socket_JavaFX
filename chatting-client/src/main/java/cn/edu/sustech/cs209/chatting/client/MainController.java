@@ -2,20 +2,23 @@ package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
+import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.ResourceBundle;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.fxml.Initializable;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -23,7 +26,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Dialog;
-import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -33,30 +35,30 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-public class Controller extends Application {
+public class MainController implements Initializable {
+
+  String username;
 
   private final String HOST = "localhost";
   private final int PORT = 8080;
   private Socket socket;
   BlockingQueue<Message> messageQueue;
-  private ObjectOutputStream out;
 
-  private volatile Message rsvmsg;
-
-  String username;
   List<ChatRecord> records = new ArrayList<>();
+
+  @FXML
   ListView<String> chatHistoryListView = new ListView<>();
 
-  @Override
-  public void start(Stage primaryStage) {
+  private ObjectOutputStream out;
 
+  @Override
+  public void initialize(URL url, ResourceBundle resourceBundle) {
     try {
       socket = new Socket(HOST, PORT);
       messageQueue = new LinkedBlockingQueue<>();
 
       MySocketThread socketThread = new MySocketThread(socket, messageQueue);
       socketThread.start();
-
       out = new ObjectOutputStream(socket.getOutputStream());
 
       login();
@@ -73,11 +75,14 @@ public class Controller extends Application {
               String userListStr = rsvmsg.getData();
               List<String> userList = new ArrayList<>(Arrays.asList(userListStr.split(",")));
               userList.remove(username);
+
+              startUserListController(userList);
+              // TODO: delete this
               createChat(userList);
               break;
             case SUCCESS:
               if (rsvmsg.getData().equals("username ok")) {
-                buildChatRoom(primaryStage);
+//                buildChatRoom(primaryStage);
               }
               break;
             case WARNING:
@@ -87,11 +92,30 @@ public class Controller extends Application {
               break;
           }
         } else {
-          Thread.sleep(2000);
-          System.out.println("do other things...");
+//          Thread.sleep(2000);
+//          System.out.println("do other things...");
         }
       }
 
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  public void startUserListController(List<String> userList) {
+    try {
+      FXMLLoader fxmlLoader = new FXMLLoader(
+          getClass().getResource("UserListController.fxml"));
+
+      Stage userListStage = new Stage();
+      UserListController userListController = new UserListController();
+      userListController.userList = userList;
+      userListController.records = records;
+
+      fxmlLoader.setController(userListController);
+      userListStage.setScene(new Scene(fxmlLoader.load()));
+      userListStage.setTitle("Chatting Client");
+      userListStage.show();
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -142,62 +166,62 @@ public class Controller extends Application {
     }
   }
 
-  public void buildChatRoom(Stage primaryStage) {
-    BorderPane root = new BorderPane();
-
-    // 创建一个包含“新建聊天”按钮的顶部面板
-    HBox topPane = new HBox();
-    topPane.setAlignment(Pos.CENTER);
-    topPane.setPadding(new Insets(10));
-    topPane.setSpacing(10);
-    topPane.getChildren().addAll(createNewChatButton());
-
-    // 创建一个显示聊天历史记录的列表视图
-    chatHistoryListView.getItems().addAll("聊天室1", "聊天室2", "聊天室3", "聊天室4");
-    ObservableList<String> recordStrs = FXCollections.observableArrayList();
-    for (ChatRecord record : records) {
-      recordStrs.add(record.toString());
-    }
-    chatHistoryListView.setItems(recordStrs);
-    chatHistoryListView.setOnMouseClicked(event -> {
-      // 处理列表项的点击事件，打开相应的聊天窗口
-      String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
-      if (selectedItem != null) {
-        ChatRecord record = getRecordByName(selectedItem);
-        try {
-          openChat(record);
-        } catch (NullPointerException e) {
-          e.printStackTrace();
-        }
-      }
-    });
-
-    // 创建一个包含聊天历史记录列表视图的中心面板
-    VBox centerPane = new VBox();
-    centerPane.setAlignment(Pos.CENTER);
-    centerPane.setPadding(new Insets(10));
-    centerPane.setSpacing(10);
-    centerPane.getChildren().addAll(new Label("history"), chatHistoryListView);
-
-    // 将顶部面板和中心面板添加到主面板中
-    root.setTop(topPane);
-    root.setCenter(centerPane);
-
-    // 创建场景并设置主面板
-    Scene scene = new Scene(root, 400, 400);
-    primaryStage.setScene(scene);
-    primaryStage.setTitle("ChatRoom: " + username);
-    primaryStage.show();
-
-  }
-
-  private Button createNewChatButton() {
-    Button newChatButton = new Button("new chat");
-    newChatButton.setOnAction(event -> {
-      getUserList();
-    });
-    return newChatButton;
-  }
+//  public void buildChatRoom(Stage primaryStage) {
+//    BorderPane root = new BorderPane();
+//
+//    // 创建一个包含“新建聊天”按钮的顶部面板
+//    HBox topPane = new HBox();
+//    topPane.setAlignment(Pos.CENTER);
+//    topPane.setPadding(new Insets(10));
+//    topPane.setSpacing(10);
+//    topPane.getChildren().addAll(createNewChatButton());
+//
+//    // 创建一个显示聊天历史记录的列表视图
+//    chatHistoryListView.getItems().addAll("聊天室1", "聊天室2", "聊天室3", "聊天室4");
+//    ObservableList<String> recordStrs = FXCollections.observableArrayList();
+//    for (ChatRecord record : records) {
+//      recordStrs.add(record.toString());
+//    }
+//    chatHistoryListView.setItems(recordStrs);
+//    chatHistoryListView.setOnMouseClicked(event -> {
+//      // 处理列表项的点击事件，打开相应的聊天窗口
+//      String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
+//      if (selectedItem != null) {
+//        ChatRecord record = getRecordByName(selectedItem);
+//        try {
+//          openChat(record);
+//        } catch (NullPointerException e) {
+//          e.printStackTrace();
+//        }
+//      }
+//    });
+//
+//    // 创建一个包含聊天历史记录列表视图的中心面板
+//    VBox centerPane = new VBox();
+//    centerPane.setAlignment(Pos.CENTER);
+//    centerPane.setPadding(new Insets(10));
+//    centerPane.setSpacing(10);
+//    centerPane.getChildren().addAll(new Label("history"), chatHistoryListView);
+//
+//    // 将顶部面板和中心面板添加到主面板中
+//    root.setTop(topPane);
+//    root.setCenter(centerPane);
+//
+//    // 创建场景并设置主面板
+//    Scene scene = new Scene(root, 400, 400);
+//    primaryStage.setScene(scene);
+//    primaryStage.setTitle("ChatRoom: " + username);
+//    primaryStage.show();
+//
+//  }
+//
+//  private Button createNewChatButton() {
+//    Button newChatButton = new Button("new chat");
+//    newChatButton.setOnAction(event -> {
+//      getUserList();
+//    });
+//    return newChatButton;
+//  }
 
   private ChatRecord getRecordByName(String names) {
     List<String> namesList = Arrays.asList(names.split(","));
@@ -209,6 +233,7 @@ public class Controller extends Application {
     return null;
   }
 
+  @FXML
   public void getUserList() {
     try {
       Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
@@ -221,6 +246,20 @@ public class Controller extends Application {
     }
   }
 
+  @FXML
+  public void createChat() {
+    try {
+      FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("MainController.fxml"));
+      Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
+      primaryStage.setScene(new Scene(fxmlLoader.load()));
+      primaryStage.setTitle("Cha");
+      primaryStage.show();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  @FXML
   public void createChat(List<String> userList) {
     // create user checkboxes, and listen on selection
     CheckBox[] userCheckboxes = new CheckBox[userList.size()];
@@ -343,32 +382,4 @@ public class Controller extends Application {
 
     stage.show();
   }
-
-  private class ChatRecord {
-
-    private List<String> names = new ArrayList<>();   // the opposite user
-    private List<Message> messages = new ArrayList<>();
-
-    public ChatRecord(List<String> names) {
-      this.names = names;
-    }
-
-    public List<String> getNames() {
-      return names;
-    }
-
-    public List<Message> getMessages() {
-      return messages;
-    }
-
-    public void updateMessage(Message m) {
-      messages.add(m);
-    }
-
-    @Override
-    public String toString() {
-      return String.join(",", names);
-    }
-  }
-
 }

@@ -1,0 +1,41 @@
+public void createChat(List<String> userList) {
+// create user checkboxes, and listen on selection
+CheckBox[] userCheckboxes = new CheckBox[userList.size()];
+for (int i = 0; i < userList.size(); i++) {
+userCheckboxes[i] = new CheckBox(userList.get(i));
+}
+Button okBtn = new Button("OK");
+okBtn.setOnAction(event -> {
+List<String> selectedUsers = new ArrayList<>();
+  for (CheckBox cb : userCheckboxes) {
+  if (cb.isSelected()) {
+  selectedUsers.add(cb.getText());
+  }
+  }
+
+  // check if chat records with these users already exist
+  ChatRecord existingRecord = getExistingRecord(selectedUsers);
+  if (existingRecord != null) {
+  openChat(existingRecord);
+  } else {
+  // create new chat record
+  ChatRecord newRecord = new ChatRecord(selectedUsers);
+  records.add(newRecord);
+  openChat(newRecord);
+  }
+
+  // close dialog
+  Node source = (Node) event.getSource();
+  Stage stage = (Stage) source.getScene().getWindow();
+  stage.close();
+  });
+
+  VBox box = new VBox(10);
+  box.setAlignment(Pos.CENTER);
+  box.setPadding(new Insets(20, 20, 20, 20));
+  box.getChildren().addAll(userCheckboxes);
+  box.getChildren().add(okBtn);
+  Stage stage = new Stage();
+  stage.setScene(new Scene(box));
+  stage.showAndWait();
+  }
