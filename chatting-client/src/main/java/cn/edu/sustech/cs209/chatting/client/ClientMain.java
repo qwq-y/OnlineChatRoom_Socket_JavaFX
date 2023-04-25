@@ -372,7 +372,9 @@ public class ClientMain extends Application {
     });
 
 // set action on emojiButton
+    emojiButton.setFocusTraversable(false);   // remain cursor in inputField
     emojiButton.setOnAction(event -> {
+      int position = inputField.getCaretPosition();
       // create emoji list popup
       Popup emojiPopup = new Popup();
       HBox emojiButtons = new HBox();
@@ -381,7 +383,8 @@ public class ClientMain extends Application {
         Button button = new Button(emoji);
         button.setStyle("-fx-font-size: 15px; -fx-background-color: transparent;");
         button.setOnAction(buttonEvent -> {
-          inputField.insertText(inputField.getCaretPosition(), emoji);
+          inputField.insertText(position, emoji);
+          inputField.positionCaret(position + emoji.length());
           emojiPopup.hide();
         });
         emojiButtons.getChildren().add(button);
