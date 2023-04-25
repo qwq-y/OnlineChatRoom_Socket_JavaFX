@@ -56,6 +56,7 @@ public class ServerMain {
 
     public void run() {
       try {
+        whileLabel:
         while (true) {
           Message rsvmsg = (Message) in.readObject();
           System.out.println("server rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
@@ -70,8 +71,8 @@ public class ServerMain {
                 }
                 break;
               case EXIT:
-                userExit(rsvmsg);
-                break;
+                exit();
+                break whileLabel;
               case CHAT:
                 chat(rsvmsg);
                 break;
@@ -90,36 +91,44 @@ public class ServerMain {
       } catch (Exception e) {
         e.printStackTrace();
       }
+
+      System.out.println(username + " thread closed.");
     }
 
-    private void userExit(Message rsvmsg) throws Exception {
+    private void exit() throws Exception {
       users.remove(username);
       String sendToStr = users.keySet().stream().collect(Collectors.joining(","));
-      String[] sendToArr = sendToStr.split(",");
-      HashSet<ObjectOutputStream> reveiverStreams = new HashSet<>();
-      for (String name : sendToArr) {
-        ObjectOutputStream stream = users.get(name);
-        reveiverStreams.add(stream);
-      }
 
-      Message sndmsg = new Message(System.currentTimeMillis(), NAME, sendToStr, username,
-          MessageType.EXIT);
-      try {
-        Iterator<ObjectOutputStream> itr = reveiverStreams.iterator();
-        while (itr.hasNext()) {
-          ObjectOutputStream stream = itr.next();
-          stream.writeObject(sndmsg);
-          stream.flush();
-          System.out.println(
-              "server sndmsg to " + sndmsg.getSendTo() + ": " + sndmsg.getType() + " "
-                  + sndmsg.getData());
+      if (sendToStr.length() > 0) {
+
+        // get reveiverStreams
+        String[] sendToArr = sendToStr.split(",");
+        HashSet<ObjectOutputStream> reveiverStreams = new HashSet<>();
+        for (String name : sendToArr) {
+          ObjectOutputStream stream = users.get(name);
+          reveiverStreams.add(stream);
         }
-      } catch (Exception e) {
-        e.printStackTrace();
+
+        // notice others
+        Message sndmsg = new Message(System.currentTimeMillis(), NAME, sendToStr, username,
+            MessageType.EXIT);
+        try {
+          Iterator<ObjectOutputStream> itr = reveiverStreams.iterator();
+          while (itr.hasNext()) {
+            ObjectOutputStream stream = itr.next();
+            stream.writeObject(sndmsg);
+            stream.flush();
+            System.out.println(
+                "server sndmsg to " + sndmsg.getSendTo() + ": " + sndmsg.getType() + " "
+                    + sndmsg.getData());
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
       }
 
       socket.close();
-      System.out.println(rsvmsg.getSentBy() + " socket closed.");
+      System.out.println(username + " socket closed.");
     }
 
     private void sendMessage(String sentBy, String sendTo, String data, MessageType type)

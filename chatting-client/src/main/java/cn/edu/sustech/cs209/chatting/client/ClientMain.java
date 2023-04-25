@@ -53,6 +53,8 @@ public class ClientMain extends Application {
   List<ChatRecord> records = new ArrayList<>();
   ListView<String> chatHistoryListView = new ListView<>();
 
+  Timer timer = new Timer();
+
   @Override
   public void start(Stage primaryStage) {
 
@@ -69,7 +71,7 @@ public class ClientMain extends Application {
 
       Platform.setImplicitExit(false);
 
-      Timer timer = new Timer();
+      timer = new Timer();
       Runnable runnable = new Runnable() {
         @Override
         public void run() {
@@ -258,6 +260,8 @@ public class ClientMain extends Application {
     sendMessage("server", "bye", MessageType.EXIT);
     Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
     primaryStage.close();
+    timer.cancel();
+    System.exit(0);
   }
 
   private void noticeFriendLeave(ChatRecord record, TextArea chatArea, String friendName) {
