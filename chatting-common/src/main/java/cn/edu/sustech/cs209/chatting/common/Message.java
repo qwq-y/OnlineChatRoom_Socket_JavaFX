@@ -1,8 +1,6 @@
 package cn.edu.sustech.cs209.chatting.common;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.List;
 
 public class Message implements Serializable {
 
@@ -10,11 +8,11 @@ public class Message implements Serializable {
   // System.currentTimeMillis()
 
   private String sentBy;
-  // "server" or username
+  // "system"(notice) or "server" or username
 
   private String sendTo;
   // str.split(","); String.join(",", record.getNames());
-  // "default" in server-client, usernames in client-server-client
+  // "server" in client to server, "default" in server to client, usernames in client-server-client
 
   private String group;
   // used in group chat
@@ -22,8 +20,13 @@ public class Message implements Serializable {
 
   private String data;
   /**
-   * LOGIN: data = sentBy = username SUCCESS/WARING: data = relative info REQUEST: data = "userList"
-   * RESPOND: data = resources CHAT: data = dialogs EXIT: data = "exit"
+   * LOGIN: data = sentBy = username
+   * SUCCESS/WARING: data = relative info
+   * REQUEST: data = "userList"
+   * RESPOND: data = resources
+   * CHAT: data = dialogs
+   * EXIT: data = "bye"(exiter to server) or username of the exiter(server to others)
+   * NOTICE: used notice friend left, do not send
    */
 
   private MessageType type;

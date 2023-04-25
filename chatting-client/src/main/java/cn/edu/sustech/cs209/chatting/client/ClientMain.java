@@ -27,7 +27,6 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
-import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
@@ -36,7 +35,6 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
-import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
 
 public class ClientMain extends Application {
@@ -120,6 +118,18 @@ public class ClientMain extends Application {
     }
   }
 
+  private void sendMessage(String sendTo, String data, MessageType type) {
+    try {
+      Message sndmsg = new Message(System.currentTimeMillis(), username, sendTo,
+          data, type);
+      out.writeObject(sndmsg);
+      out.flush();
+      System.out.println(username + " sndmsg to " + sendTo + ": " + sndmsg.getData());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
   public void receiveChatMessage(Message rsvmsg) {
     List<String> names0 = Arrays.asList(
         rsvmsg.getGroup().split(","));
@@ -137,17 +147,8 @@ public class ClientMain extends Application {
       openNewChat(newRecord);
     }
 
+    // update history
     updateHistoryListView();
-  }
-
-  private void updateHistoryListView() {
-    ObservableList<String> recordStrs = FXCollections.observableArrayList();
-    for (ChatRecord record : records) {
-      recordStrs.add(record.toString());
-    }
-    chatHistoryListView.setItems(recordStrs);
-    Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
-    primaryStage.show();
   }
 
   public void login() {
@@ -177,6 +178,34 @@ public class ClientMain extends Application {
     }
   }
 
+  private void updateHistoryListView() {
+    setHistoryListView();
+    Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
+    primaryStage.show();
+  }
+
+  private void setHistoryListView() {
+    ObservableList<String> recordStrs = FXCollections.observableArrayList();
+    for (ChatRecord record : records) {
+      recordStrs.add(record.toString());
+    }
+    chatHistoryListView.setItems(recordStrs);
+    if (recordStrs.size() == 0) {
+      chatHistoryListView.getItems().add("no history...");
+    }
+    chatHistoryListView.setOnMouseClicked(event -> {
+      String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
+      if (selectedItem != null) {
+        ChatRecord record = getRecordByName(selectedItem);
+        try {
+          openExistChat(record);
+        } catch (NullPointerException e) {
+          e.printStackTrace();
+        }
+      }
+    });
+  }
+
   public void buildChatRoom(Stage primaryStage) {
     BorderPane root = new BorderPane();
 
@@ -188,24 +217,7 @@ public class ClientMain extends Application {
     topPane.getChildren().addAll(createNewChatButton());
 
     // 创建一个显示聊天历史记录的列表视图
-    ObservableList<String> recordStrs = FXCollections.observableArrayList();
-    for (ChatRecord record : records) {
-      recordStrs.add(record.toString());
-    }
-    chatHistoryListView.setItems(recordStrs);
-    chatHistoryListView.getItems().add("no history...");
-    chatHistoryListView.setOnMouseClicked(event -> {
-      // 处理列表项的点击事件，打开相应的聊天窗口
-      String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
-      if (selectedItem != null) {
-        ChatRecord record = getRecordByName(selectedItem);
-        try {
-          openExistChat(record);
-        } catch (NullPointerException e) {
-          e.printStackTrace();
-        }
-      }
-    });
+    setHistoryListView();
 
     // 创建一个包含聊天历史记录列表视图的中心面板
     VBox centerPane = new VBox();
@@ -326,7 +338,7 @@ public class ClientMain extends Application {
     TextArea chatArea = record.getChatArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
-    Button emojiButton = new Button("😊");
+    Button emojiButton = new Button("\uD83D\uDE00");
 
     // set UI elements' property
     chatArea.setEditable(false);
@@ -376,30 +388,21 @@ public class ClientMain extends Application {
     emojiButton.setOnAction(event -> {
       // create emoji list popup
       Popup emojiPopup = new Popup();
-      HBox emojiButtons = new HBox();
-      String[] emojis = {"😊", "😃", "😍", "🤔", "😴", "🤢", "😘", "❤", "👌"};
-      for (String emoji : emojis) {
-        Button button = new Button(emoji);
-        button.setStyle("-fx-font-size: 15px; -fx-background-color: transparent;");
-        button.setOnAction(buttonEvent -> {
-          inputField.insertText(inputField.getCaretPosition(), emoji);
-          emojiPopup.hide();
-        });
-        emojiButtons.getChildren().add(button);
-      }
-      VBox emojiBox = new VBox(emojiButtons);
-      emojiBox.setStyle("-fx-background-color: white; -fx-border-color: gray; -fx-border-width: 0.5px;");
+      ListView<String> emojiList = new ListView<>(FXCollections.observableArrayList(
+          "😃", "😊", "😍", "🤔", "😴", "🤢"));
+      emojiPopup.getContent().add(emojiList);
 
-      emojiPopup.getContent().add(emojiBox);
-
-      // set style for emoji list popup
-      emojiPopup.setAutoHide(true);
-      emojiPopup.setAnchorLocation(PopupWindow.AnchorLocation.CONTENT_TOP_LEFT);
+      // set action on emoji list items
+      emojiList.setOnMouseClicked(clickEvent -> {
+        String selectedEmoji = emojiList.getSelectionModel().getSelectedItem();
+        inputField.insertText(inputField.getCaretPosition(), selectedEmoji);
+        emojiPopup.hide();
+      });
 
       // show emoji list popup
-      emojiPopup.show(emojiButton.getScene().getWindow(),
-          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinX(),
-          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinY() + emojiButton.getHeight());
+      emojiPopup.show(stage,
+          stage.getX() + inputBox.getBoundsInParent().getMinX() + emojiButton.getWidth(),
+          stage.getY() + inputBox.getBoundsInParent().getMinY() + inputBox.getHeight());
     });
 
     // enable typing Enter key to send message
@@ -409,6 +412,11 @@ public class ClientMain extends Application {
         event.consume();
       }
     });
+
+    // store records before close
+//      stage.setOnCloseRequest(event -> {
+//        record.saveChatRecord(chatArea.getText());
+//      });
 
     loadRecords(record, stage, chatArea);
 
@@ -482,11 +490,7 @@ public class ClientMain extends Application {
       if (lastmsg == null) {
         lastmsg = "";
       }
-      if (lastmsg.length() > 32) {
-        lastmsg = lastmsg.substring(0, 32) + "...";
-      }
       return getTitle() + ": " + lastmsg;
     }
   }
-
 }
