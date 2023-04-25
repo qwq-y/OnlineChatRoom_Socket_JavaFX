@@ -4,9 +4,11 @@ import cn.edu.sustech.cs209.chatting.common.Message;
 import cn.edu.sustech.cs209.chatting.common.MessageType;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.Timer;
@@ -187,10 +189,13 @@ public class ClientMain extends Application {
     if (recordStrs.size() == 0) {
       chatHistoryListView.getItems().add("no history...");
     }
+
     chatHistoryListView.setOnMouseClicked(event -> {
       String selectedItem = chatHistoryListView.getSelectionModel().getSelectedItem();
-      if (selectedItem != null) {
-        ChatRecord record = getRecordByName(selectedItem);
+      if (selectedItem != null && selectedItem != "no history...") {
+        String withNames = selectedItem.split(": ")[0];
+        String names = withNames.substring(5);
+        ChatRecord record = getRecordByName(names);
         try {
           openExistChat(record);
         } catch (NullPointerException e) {
@@ -198,6 +203,7 @@ public class ClientMain extends Application {
         }
       }
     });
+
   }
 
   public void buildChatRoom(Stage primaryStage) {
@@ -390,7 +396,8 @@ public class ClientMain extends Application {
         emojiButtons.getChildren().add(button);
       }
       VBox emojiBox = new VBox(emojiButtons);
-      emojiBox.setStyle("-fx-background-color: white; -fx-border-color: gray; -fx-border-width: 0.5px;");
+      emojiBox.setStyle(
+          "-fx-background-color: white; -fx-border-color: gray; -fx-border-width: 0.5px;");
 
       emojiPopup.getContent().add(emojiBox);
 
@@ -401,7 +408,8 @@ public class ClientMain extends Application {
       // show emoji list popup
       emojiPopup.show(emojiButton.getScene().getWindow(),
           emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinX(),
-          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinY() + emojiButton.getHeight());
+          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinY()
+              + emojiButton.getHeight());
     });
 
     // enable typing Enter key to send message
@@ -480,11 +488,17 @@ public class ClientMain extends Application {
 
     @Override
     public String toString() {
-      String lastmsg = messages.get(messages.size()-1).getData();
-      if (lastmsg == null) {
-        lastmsg = "";
+      String lastData = "";
+      if (messages.size() > 0) {
+        Message lastMsg = messages.get(messages.size() - 1);
+        lastData = lastMsg.getData();
+        Date date = new Date(lastMsg.getTimestamp());
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        String formattedDate = formatter.format(date);
+        return "with " + String.join(",", names) + ": " + "[" + formattedDate + "] " + lastData;
       }
-      return getTitle() + ": " + lastmsg;
+
+      return "no history...";
     }
   }
 }
