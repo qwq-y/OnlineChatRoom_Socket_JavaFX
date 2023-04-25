@@ -35,6 +35,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Popup;
+import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
 
 public class ClientMain extends Application {
@@ -338,7 +339,7 @@ public class ClientMain extends Application {
     TextArea chatArea = record.getChatArea();
     TextField inputField = new TextField();
     Button sendButton = new Button("Send");
-    Button emojiButton = new Button("\uD83D\uDE00");
+    Button emojiButton = new Button("😊");
 
     // set UI elements' property
     chatArea.setEditable(false);
@@ -384,25 +385,34 @@ public class ClientMain extends Application {
       }
     });
 
-    // set action on emojiButton
+// set action on emojiButton
     emojiButton.setOnAction(event -> {
       // create emoji list popup
       Popup emojiPopup = new Popup();
-      ListView<String> emojiList = new ListView<>(FXCollections.observableArrayList(
-          "😃", "😊", "😍", "🤔", "😴", "🤢"));
-      emojiPopup.getContent().add(emojiList);
+      HBox emojiButtons = new HBox();
+      String[] emojis = {"😊", "😃", "😍", "🤔", "😴", "🤢", "😘", "❤", "👌"};
+      for (String emoji : emojis) {
+        Button button = new Button(emoji);
+        button.setStyle("-fx-font-size: 15px; -fx-background-color: transparent;");
+        button.setOnAction(buttonEvent -> {
+          inputField.insertText(inputField.getCaretPosition(), emoji);
+          emojiPopup.hide();
+        });
+        emojiButtons.getChildren().add(button);
+      }
+      VBox emojiBox = new VBox(emojiButtons);
+      emojiBox.setStyle("-fx-background-color: white; -fx-border-color: gray; -fx-border-width: 0.5px;");
 
-      // set action on emoji list items
-      emojiList.setOnMouseClicked(clickEvent -> {
-        String selectedEmoji = emojiList.getSelectionModel().getSelectedItem();
-        inputField.insertText(inputField.getCaretPosition(), selectedEmoji);
-        emojiPopup.hide();
-      });
+      emojiPopup.getContent().add(emojiBox);
+
+      // set style for emoji list popup
+      emojiPopup.setAutoHide(true);
+      emojiPopup.setAnchorLocation(PopupWindow.AnchorLocation.CONTENT_TOP_LEFT);
 
       // show emoji list popup
-      emojiPopup.show(stage,
-          stage.getX() + inputBox.getBoundsInParent().getMinX() + emojiButton.getWidth(),
-          stage.getY() + inputBox.getBoundsInParent().getMinY() + inputBox.getHeight());
+      emojiPopup.show(emojiButton.getScene().getWindow(),
+          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinX(),
+          emojiButton.localToScene(emojiButton.getBoundsInLocal()).getMinY() + emojiButton.getHeight());
     });
 
     // enable typing Enter key to send message
@@ -412,11 +422,6 @@ public class ClientMain extends Application {
         event.consume();
       }
     });
-
-    // store records before close
-//      stage.setOnCloseRequest(event -> {
-//        record.saveChatRecord(chatArea.getText());
-//      });
 
     loadRecords(record, stage, chatArea);
 
