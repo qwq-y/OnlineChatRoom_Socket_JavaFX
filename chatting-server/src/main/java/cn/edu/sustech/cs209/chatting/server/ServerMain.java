@@ -88,23 +88,26 @@ public class ServerMain {
       }
     }
 
+    private void sendMessage(String sentBy, String sendTo, String data, MessageType type)
+        throws Exception {
+      Message sndmsg = new Message(System.currentTimeMillis(), sentBy, sendTo,
+          data, type);
+      out.writeObject(sndmsg);
+      out.flush();
+      System.out.println("server sndmsg to " + sendTo + ": " + sndmsg.getData());
+    }
+
     private void login(Message rsvmsg) throws Exception {
       String tempname = rsvmsg.getData();
       Message sndmsg;
       if (isDuplicateName(tempname)) {
-        sndmsg = new Message(System.currentTimeMillis(), NAME, "default", "duplicate name",
-            MessageType.WARNING);
-        out.writeObject(sndmsg);
-        out.flush();
+        sendMessage(NAME, "default", "duplicate name", MessageType.WARNING);
       } else {
         username = tempname;
         users.put(username, out);
-        sndmsg = new Message(System.currentTimeMillis(), NAME, "default", "username ok",
+        sendMessage(NAME, "default", "username ok",
             MessageType.SUCCESS);
-        out.writeObject(sndmsg);
-        out.flush();
       }
-      System.out.println("server sndmsg: " + sndmsg.getData());
     }
 
     private boolean isDuplicateName(String name) {
@@ -121,11 +124,8 @@ public class ServerMain {
     private void getUserList() throws Exception {
       String[] userList = users.keySet().toArray(new String[users.size()]);
       String userListStr = String.join(",", userList);
-      Message sndmsg = new Message(System.currentTimeMillis(), NAME, "default", userListStr,
+      sendMessage(NAME, "default", userListStr,
           MessageType.RESPOND);
-      out.writeObject(sndmsg);
-      out.flush();
-      System.out.println("server sndmsg: " + sndmsg.getData());
     }
 
     private void chat(Message msg) {

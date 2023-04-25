@@ -100,7 +100,6 @@ public class ClientMain extends Application {
                 break;
             }
           } else {
-//                  Thread.sleep(2000);
 //                  System.out.println("do other things...");
           }
         }
@@ -163,16 +162,10 @@ public class ClientMain extends Application {
       try {
         username = input.get();
         System.out.println("input username: " + username);
-        Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
-            username, MessageType.LOGIN);
-        out.writeObject(sndmsg);
-        out.flush();
-        System.out.println("client sndmsg: " + sndmsg.getData());
-
+        sendMessage("default", username, MessageType.LOGIN);
       } catch (Exception e) {
         e.printStackTrace();
       }
-
     } else {
       System.out.println("Invalid username " + input + ", exiting");
       Platform.exit();
@@ -260,11 +253,7 @@ public class ClientMain extends Application {
 
   public void getUserList() {
     try {
-      Message sndmsg = new Message(System.currentTimeMillis(), username, "default",
-          "userList", MessageType.REQUEST);
-      out.writeObject(sndmsg);
-      out.flush();
-      System.out.println("client sndmsg: " + sndmsg.getData());
+      sendMessage("default", "userList", MessageType.REQUEST);
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -372,10 +361,7 @@ public class ClientMain extends Application {
           Message sndmsg = new Message(System.currentTimeMillis(), username, names, message,
               MessageType.CHAT);
           record.updateMessage(sndmsg);
-          out.writeObject(sndmsg);
-          out.flush();
-          System.out.println("client choose user to chat with: " + names);
-          System.out.println("client sndmsg: " + sndmsg.getData());
+          sendMessage(sndmsg.getSendTo(), sndmsg.getData(), sndmsg.getType());
           loadRecords(record, stage, chatArea);
           stage.show();
           updateHistoryListView();
