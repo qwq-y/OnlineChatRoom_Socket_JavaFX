@@ -98,7 +98,7 @@ public class ServerMain {
       System.out.println(username + " thread closed.");
     }
 
-        private void exit() throws Exception {
+    private void exit() throws Exception {
       users.remove(username);
       String sendToStr = users.keySet().stream().collect(Collectors.joining(","));
 

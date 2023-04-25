@@ -267,7 +267,8 @@ public class ClientMain extends Application {
   private void noticeFriendLeave(ChatRecord record, TextArea chatArea, String friendName) {
     List<Message> messages = record.getMessages();
     String noticeStr = "\n------- " + friendName + " has left the room -------\n";
-    Message noticeMsg = new Message(System.currentTimeMillis(), "system", username, noticeStr, MessageType.NOTICE);
+    Message noticeMsg = new Message(System.currentTimeMillis(), "system", username, noticeStr,
+        MessageType.NOTICE);
     messages.add(noticeMsg);
     loadRecords(record, chatArea);
   }
