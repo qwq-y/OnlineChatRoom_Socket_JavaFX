@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Timer;
@@ -99,6 +100,9 @@ public class ClientMain extends Application {
                 if (rsvmsg.getData().equals("duplicate name")) {
                   login();
                 }
+                break;
+              case EXIT:
+                friendExit(rsvmsg);
                 break;
             }
           } else {
@@ -214,7 +218,19 @@ public class ClientMain extends Application {
     topPane.setAlignment(Pos.CENTER);
     topPane.setPadding(new Insets(10));
     topPane.setSpacing(10);
-    topPane.getChildren().addAll(createNewChatButton());
+
+    // 创建顶部面板里的按钮，并绑定事件
+    Button newChatButton = new Button("new chat");
+    newChatButton.setOnAction(event -> {
+      getUserList();
+    });
+
+    Button exitButton = new Button("exit");
+    exitButton.setOnAction(event -> {
+      exit();
+    });
+
+    topPane.getChildren().addAll(newChatButton, exitButton);
 
     // 创建一个显示聊天历史记录的列表视图
     setHistoryListView();
@@ -238,13 +254,39 @@ public class ClientMain extends Application {
 
   }
 
-  private Button createNewChatButton() {
-    Button newChatButton = new Button("new chat");
-    newChatButton.setOnAction(event -> {
-      getUserList();
-    });
-    return newChatButton;
+  public void exit() {
+    sendMessage("server", "bye", MessageType.EXIT);
+    Stage primaryStage = (Stage) chatHistoryListView.getScene().getWindow();
+    primaryStage.close();
   }
+
+  private void noticeFriendLeave(ChatRecord record, TextArea chatArea, String friendName) {
+    List<Message> messages = record.getMessages();
+    String noticeStr = "\n------- " + friendName + " has left the room -------\n";
+    Message noticeMsg = new Message(System.currentTimeMillis(), "system", username, noticeStr, MessageType.NOTICE);
+    messages.add(noticeMsg);
+    loadRecords(record, chatArea);
+  }
+
+  public void friendExit(Message rsvmsg) {
+    String friendName = rsvmsg.getData();
+    Iterator<ChatRecord> iterator = records.iterator();
+    while (iterator.hasNext()) {
+      ChatRecord record = iterator.next();
+      if (record.getNames().contains(friendName)) {
+        Stage stage = record.getStage();
+//        if (record.getNames().size() == 1) {
+//          HBox hbox = (HBox) ((BorderPane) stage.getScene().getRoot()).getBottom();
+//          Button sendButton = (Button) hbox.getChildren().get(2);
+//          hbox.getChildren().remove(sendButton);
+//        }
+//        record.removeName(friendName);
+        noticeFriendLeave(record, record.getChatArea(), friendName);
+        stage.show();
+      }
+    }
+  }
+
 
   private ChatRecord getRecordByName(String names) {
     List<String> namesList = Arrays.asList(names.split(","));
@@ -324,7 +366,7 @@ public class ClientMain extends Application {
   public void openExistChat(ChatRecord record) {
     Stage stage = record.getStage();
     TextArea chatArea = record.getChatArea();
-    loadRecords(record, stage, chatArea);
+    loadRecords(record, chatArea);
     stage.show();
   }
 
@@ -368,7 +410,7 @@ public class ClientMain extends Application {
               MessageType.CHAT);
           record.updateMessage(sndmsg);
           sendMessage(sndmsg.getSendTo(), sndmsg.getData(), sndmsg.getType());
-          loadRecords(record, stage, chatArea);
+          loadRecords(record, chatArea);
           stage.show();
           updateHistoryListView();
         } catch (Exception e) {
@@ -420,12 +462,12 @@ public class ClientMain extends Application {
       }
     });
 
-    loadRecords(record, stage, chatArea);
+    loadRecords(record, chatArea);
 
     stage.show();
   }
 
-  private void loadRecords(ChatRecord record, Stage stage, TextArea chatArea) {
+  private void loadRecords(ChatRecord record, TextArea chatArea) {
     List<Message> messages = record.getMessages();
     if (messages != null && !messages.isEmpty()) {
       StringBuilder messagesSb = new StringBuilder();
@@ -466,6 +508,10 @@ public class ClientMain extends Application {
 
     public TextArea getChatArea() {
       return chatArea;
+    }
+
+    public void removeName(String name) {
+      names.remove(name);
     }
 
     public List<Message> getMessages() {

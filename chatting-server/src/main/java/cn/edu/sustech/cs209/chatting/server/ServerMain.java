@@ -8,9 +8,11 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 public class ServerMain {
 
@@ -68,7 +70,7 @@ public class ServerMain {
                 }
                 break;
               case EXIT:
-                socket.close();
+                userExit(rsvmsg);
                 break;
               case CHAT:
                 chat(rsvmsg);
@@ -83,18 +85,50 @@ public class ServerMain {
         }
       } catch (EOFException e) {
         System.out.println("EOF");
+      } catch (SocketException e) {
+        System.out.println("socket closed");
       } catch (Exception e) {
         e.printStackTrace();
       }
     }
 
+    private void userExit(Message rsvmsg) throws Exception {
+      users.remove(username);
+      String sendToStr = users.keySet().stream().collect(Collectors.joining(","));
+      String[] sendToArr = sendToStr.split(",");
+      HashSet<ObjectOutputStream> reveiverStreams = new HashSet<>();
+      for (String name : sendToArr) {
+        ObjectOutputStream stream = users.get(name);
+        reveiverStreams.add(stream);
+      }
+
+      Message sndmsg = new Message(System.currentTimeMillis(), NAME, sendToStr, username,
+          MessageType.EXIT);
+      try {
+        Iterator<ObjectOutputStream> itr = reveiverStreams.iterator();
+        while (itr.hasNext()) {
+          ObjectOutputStream stream = itr.next();
+          stream.writeObject(sndmsg);
+          stream.flush();
+          System.out.println(
+              "server sndmsg to " + sndmsg.getSendTo() + ": " + sndmsg.getType() + " "
+                  + sndmsg.getData());
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+
+      socket.close();
+      System.out.println(rsvmsg.getSentBy() + " socket closed.");
+    }
+
     private void sendMessage(String sentBy, String sendTo, String data, MessageType type)
         throws Exception {
-      Message sndmsg = new Message(System.currentTimeMillis(), sentBy, sendTo,
-          data, type);
+      Message sndmsg = new Message(System.currentTimeMillis(), sentBy, sendTo, data, type);
+      System.out.println(
+          "server sndmsg to " + sendTo + ": " + sndmsg.getType() + " " + sndmsg.getData());
       out.writeObject(sndmsg);
       out.flush();
-      System.out.println("server sndmsg to " + sendTo + ": " + sndmsg.getData());
     }
 
     private void login(Message rsvmsg) throws Exception {
@@ -129,12 +163,14 @@ public class ServerMain {
     }
 
     private void chat(Message msg) {
-      System.out.println("server will relay message to: " + msg.getSendTo());
+      System.out.println("server try to relay message to: " + msg.getSendTo());
       HashSet<ObjectOutputStream> receiverStreams = new HashSet<>();
       String[] sendToArr = msg.getSendTo().split(",");
       for (String name : sendToArr) {
-        ObjectOutputStream stream = users.get(name);
-        receiverStreams.add(stream);
+        if (users.containsKey(name)) {
+          ObjectOutputStream stream = users.get(name);
+          receiverStreams.add(stream);
+        }
       }
       try {
         Iterator<ObjectOutputStream> itr = receiverStreams.iterator();
@@ -143,6 +179,8 @@ public class ServerMain {
           stream.writeObject(msg);
           stream.flush();
           System.out.println("server sndmsg: " + msg.getData());
+          System.out.println("server sndmsg to " + msg.getSendTo() + ": " + msg.getType() + " "
+              + msg.getData());
         }
       } catch (Exception e) {
         e.printStackTrace();

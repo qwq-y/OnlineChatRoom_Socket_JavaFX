@@ -1,6 +1,7 @@
 package cn.edu.sustech.cs209.chatting.client;
 
 import cn.edu.sustech.cs209.chatting.common.Message;
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.net.Socket;
@@ -23,6 +24,8 @@ public class MySocketThread extends Thread{
         Message rsvmsg = (Message) in.readObject();
         messageQueue.put(rsvmsg);
       }
+    } catch (EOFException e) {
+      System.out.println("EOF");
     } catch (IOException | ClassNotFoundException | InterruptedException e) {
       e.printStackTrace();
     } finally {
