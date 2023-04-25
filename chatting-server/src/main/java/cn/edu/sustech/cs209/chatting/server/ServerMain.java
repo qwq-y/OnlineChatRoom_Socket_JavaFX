@@ -58,6 +58,9 @@ public class ServerMain {
       try {
         whileLabel:
         while (true) {
+          if (socket.isClosed()) {
+            exit();
+          }
           Message rsvmsg = (Message) in.readObject();
           System.out.println("server rsvmsg: " + rsvmsg.getType() + " " + rsvmsg.getData());
           if (rsvmsg != null) {
@@ -95,7 +98,7 @@ public class ServerMain {
       System.out.println(username + " thread closed.");
     }
 
-    private void exit() throws Exception {
+        private void exit() throws Exception {
       users.remove(username);
       String sendToStr = users.keySet().stream().collect(Collectors.joining(","));
 
